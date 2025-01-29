@@ -1,0 +1,13 @@
+*.iml
+.gradle
+/local.properties
+/stability_config.conf
+/.idea
+/.kotlin
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+/app/schemas
