@@ -15,6 +15,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -27,7 +28,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.finance.domain.entities.OperationType
 import com.example.finance.ui.common.BackTopBar
 import com.example.finance.ui.common.ConfirmationDialog
 import com.example.finance.ui.common.FinanceTextField
@@ -37,8 +37,8 @@ import com.example.finance.ui.common.SelectableOperationTypeCard
 
 @Composable
 fun CategoryScreen(
-    onBackIconClick: () -> Unit,
-    onCategoryDelete: () -> Unit,
+    navigateBack: () -> Unit,
+    navigateToCategoryListScreen: () -> Unit,
     viewModel: CategoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -57,25 +57,33 @@ fun CategoryScreen(
             interactionSource = remember { MutableInteractionSource() }
         )
 
+    val categoryNameFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        viewModel.event.collect { event ->
+            when (event) {
+                CategoryEvent.CloseScreen -> navigateBack()
+                CategoryEvent.NavigateToCategoryListScreen -> navigateToCategoryListScreen()
+                CategoryEvent.RequestCategoryNameFocus -> categoryNameFocusRequester.requestFocus()
+            }
+        }
+    }
+
     when (uiState.details) {
         is CategoryDetails.CreateCategory -> {
             CreateCategoryScreen(
-                onBackIconClick = onBackIconClick,
-                onCategoryNameChanged = viewModel::updateCategoryName,
-                onOperationTypeChanged = viewModel::updateOperationType,
                 onUiEvent = viewModel::onUiEvent,
                 uiState = uiState,
+                categoryNameFocusRequester = categoryNameFocusRequester,
                 modifier = modifier
             )
         }
 
         is CategoryDetails.EditCategory -> {
             EditCategoryScreen(
-                onBackIconClick = onBackIconClick,
-                onCategoryNameChanged = viewModel::updateCategoryName,
                 onUiEvent = viewModel::onUiEvent,
-                onCategoryDelete = onCategoryDelete,
                 uiState = uiState,
+                categoryNameFocusRequester = categoryNameFocusRequester,
                 modifier = modifier
             )
         }
@@ -86,48 +94,38 @@ fun CategoryScreen(
 
 @Composable
 private fun CreateCategoryScreen(
-    onBackIconClick: () -> Unit,
-    onCategoryNameChanged: (String) -> Unit,
-    onOperationTypeChanged: (OperationType) -> Unit,
     onUiEvent: (CategoryUiEvent) -> Unit,
     uiState: CategoryUiState,
+    categoryNameFocusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
         topBar = {
             BackTopBar(
                 title = "Создание категории",
-                onBackIconClick = onBackIconClick,
+                onBackIconClick = { onUiEvent(CategoryUiEvent.OnBackIconClick) },
                 modifier = Modifier.fillMaxWidth()
             )
         },
         modifier = modifier
     ) { paddingValues ->
         Screen(
-            onBackIconClick = onBackIconClick,
-            onCategoryNameChanged = onCategoryNameChanged,
-            onOperationTypeChanged = onOperationTypeChanged,
             onUiEvent = onUiEvent,
             selectableOperationTypeCardEnabled = true,
             uiState = uiState,
+            categoryNameFocusRequester = categoryNameFocusRequester,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
-                    top = paddingValues.calculateTopPadding() + 12.dp,
-                    bottom = 24.dp
-                )
-                .padding(horizontal = 16.dp)
+                .padding(paddingValues)
         )
     }
 }
 
 @Composable
 private fun EditCategoryScreen(
-    onBackIconClick: () -> Unit,
-    onCategoryNameChanged: (String) -> Unit,
-    onCategoryDelete: () -> Unit,
     onUiEvent: (CategoryUiEvent) -> Unit,
     uiState: CategoryUiState,
+    categoryNameFocusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
     val details = uiState.details as CategoryDetails.EditCategory
@@ -136,7 +134,7 @@ private fun EditCategoryScreen(
         topBar = {
             BackTopBar(
                 title = "Редактирование категории",
-                onBackIconClick = onBackIconClick,
+                onBackIconClick = { onUiEvent(CategoryUiEvent.OnBackIconClick) },
                 actions = {
                     IconButton(onClick = { onUiEvent(CategoryUiEvent.OnDeleteIconClick) }) {
                         Icon(
@@ -151,19 +149,13 @@ private fun EditCategoryScreen(
         modifier = modifier
     ) { paddingValues ->
         Screen(
-            onBackIconClick = onBackIconClick,
-            onCategoryNameChanged = onCategoryNameChanged,
-            onOperationTypeChanged = {},
             onUiEvent = onUiEvent,
             selectableOperationTypeCardEnabled = false,
             uiState = uiState,
+            categoryNameFocusRequester = categoryNameFocusRequester,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
-                    top = paddingValues.calculateTopPadding() + 12.dp,
-                    bottom = 24.dp
-                )
-                .padding(horizontal = 16.dp)
+                .padding(paddingValues)
         )
     }
 
@@ -174,37 +166,31 @@ private fun EditCategoryScreen(
             onDismiss = { onUiEvent(CategoryUiEvent.OnDialogDismiss) }
         )
     }
-
-    if (details.categoryDeleted) onCategoryDelete()
 }
 
 @Composable
 private fun Screen(
-    onBackIconClick: () -> Unit,
-    onCategoryNameChanged: (String) -> Unit,
-    onOperationTypeChanged: (OperationType) -> Unit,
     onUiEvent: (CategoryUiEvent) -> Unit,
     selectableOperationTypeCardEnabled: Boolean,
     uiState: CategoryUiState,
+    categoryNameFocusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
-    val categoryNameFocusRequester = remember { FocusRequester() }
-
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
+        modifier = modifier.padding(vertical = 12.dp, horizontal = 16.dp)
     ) {
         SelectableOperationTypeCard(
             selectedOperationType = uiState.selectedOperationType,
-            onOperationTypeClick = onOperationTypeChanged,
+            onOperationTypeClick = { onUiEvent(CategoryUiEvent.OnOperationTypeChanged(it)) },
             enabled = selectableOperationTypeCardEnabled,
             modifier = Modifier.fillMaxWidth()
         )
 
         FinanceTextField(
             value = uiState.categoryName,
-            onValueChange = onCategoryNameChanged,
+            onValueChange = { onUiEvent(CategoryUiEvent.OnCategoryNameChanged(it)) },
             label = "Название",
             isError = uiState.categoryNameError,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -224,16 +210,9 @@ private fun Screen(
         if (uiState.showCategoryNameCollisionDialog) {
             MessageToUserDialog(
                 title = "Выберите другое название категории",
-                message = "Категория с таким названием уже существует",
+                message = "Категория с таким типом и названием уже существует",
                 onConfirm = { onUiEvent(CategoryUiEvent.OnConfirmCategoryNameCollisionDialog) }
             )
-        }
-
-        if (uiState.closeScreen) onBackIconClick()
-
-        if (uiState.requestCategoryNameFocus) {
-            categoryNameFocusRequester.requestFocus()
-            onUiEvent(CategoryUiEvent.OnFocusRequested)
         }
     }
 }

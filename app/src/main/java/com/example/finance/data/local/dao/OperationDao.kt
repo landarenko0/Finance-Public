@@ -3,9 +3,9 @@ package com.example.finance.data.local.dao
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Transaction
+import com.example.finance.data.local.entities.GroupedCategoriesDb
 import com.example.finance.data.local.entities.OperationDb
 import com.example.finance.data.local.entities.OperationDbExtended
-import com.example.finance.domain.entities.GroupedCategories
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
@@ -13,7 +13,7 @@ import java.time.LocalDate
 interface OperationDao : BaseDao<OperationDb> {
 
     @Transaction
-    @Query("SELECT * FROM operationdb ORDER BY id DESC")
+    @Query("SELECT * FROM operationdb")
     fun getAll(): Flow<List<OperationDbExtended>>
 
     @Transaction
@@ -25,28 +25,30 @@ interface OperationDao : BaseDao<OperationDb> {
         accountId: Int,
         startDate: LocalDate,
         endDate: LocalDate
-    ): Flow<List<GroupedCategories>>
+    ): Flow<List<GroupedCategoriesDb>>
 
     @Query(GET_ALL_GROUPED_CATEGORIES_QUERY)
     fun getAllGroupedCategories(
         startDate: LocalDate,
         endDate: LocalDate
-    ): Flow<List<GroupedCategories>>
+    ): Flow<List<GroupedCategoriesDb>>
 
     @Transaction
-    @Query(GET_OPERATIONS_BY_CATEGORY_QUERY)
-    fun getOperationsByCategory(
+    @Query(GET_OPERATIONS_BY_CATEGORY_AND_ACCOUNT_QUERY)
+    fun getOperationsByCategoryAndAccount(
         categoryId: Int,
         accountId: Int,
         startDate: LocalDate,
         endDate: LocalDate
     ): Flow<List<OperationDbExtended>>
 
-    @Query("DELETE FROM operationdb WHERE accountId = :accountId")
-    suspend fun deleteOperationsByAccountId(accountId: Int)
-
-    @Query("DELETE FROM operationdb WHERE id = :operationId")
-    suspend fun deleteOperationById(operationId: Int)
+    @Transaction
+    @Query(GET_OPERATIONS_BY_CATEGORY_QUERY)
+    fun getOperationsByCategory(
+        categoryId: Int,
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): Flow<List<OperationDbExtended>>
 
     companion object {
         const val GET_GROUPED_CATEGORIES_BY_ACCOUNT_ID_QUERY = """
@@ -125,11 +127,18 @@ interface OperationDao : BaseDao<OperationDb> {
                 categoryId
         """
 
-        const val GET_OPERATIONS_BY_CATEGORY_QUERY = """
+        const val GET_OPERATIONS_BY_CATEGORY_AND_ACCOUNT_QUERY = """
             SELECT * FROM operationdb
             WHERE
                 categoryId = :categoryId
                 AND accountId = :accountId
+                AND date BETWEEN :startDate AND :endDate
+        """
+
+        const val GET_OPERATIONS_BY_CATEGORY_QUERY = """
+            SELECT * FROM operationdb
+            WHERE
+                categoryId = :categoryId
                 AND date BETWEEN :startDate AND :endDate
         """
     }

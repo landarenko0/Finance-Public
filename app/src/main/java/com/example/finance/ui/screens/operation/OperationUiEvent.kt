@@ -14,19 +14,23 @@ sealed interface OperationUiEvent {
 
     data object OnSaveButtonClick : OperationUiEvent
 
-    data class OnNewAccountSelected(val newAccountId: Int) : OperationUiEvent
+    data class OnNewAccountSelected(val accountId: Int) : OperationUiEvent
 
-    data class OnNewCategorySelected(val newCategoryId: Int) : OperationUiEvent
+    data class OnNewCategorySelected(val categoryId: Int) : OperationUiEvent
 
-    data class OnNewSubcategorySelected(val newSubcategoryId: Int) : OperationUiEvent
+    data class OnNewSubcategorySelected(val subcategoryId: Int) : OperationUiEvent
 
-    data class OnNewDateSelected(val newDate: Long) : OperationUiEvent
+    data class OnNewDateSelected(val date: Long) : OperationUiEvent
 
     data object OnDialogDismiss : OperationUiEvent
 
     data object OnDeleteOperationDialogDismiss : OperationUiEvent
 
-    data object OnFocusRequested : OperationUiEvent
-
     data object OnDeleteOperationConfirmed : OperationUiEvent
+
+    data class OnOperationSumChanged(val operationSum: String) : OperationUiEvent
+
+    data class OnCommentChanged(val comment: String) : OperationUiEvent
+
+    data object OnBackIconClick : OperationUiEvent
 }

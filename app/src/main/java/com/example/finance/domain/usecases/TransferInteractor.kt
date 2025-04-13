@@ -7,14 +7,12 @@ import com.example.finance.domain.repository.TransferRepository
 import kotlinx.coroutines.flow.Flow
 
 class TransferInteractor(
-    val getAllTransfers: GetAllUseCase<Transfer>,
     val getTransferById: GetObjectByIdUseCase<Transfer>,
     val addTransfer: InsertUseCase<Transfer>,
-    val addAllTransfers: InsertAllUseCase<Transfer>,
     val updateTransfer: UpdateUseCase<Transfer>,
     val deleteTransfer: DeleteUseCase<Transfer>,
-    val deleteTransferById: DeleteObjectByIdUseCase<Transfer>,
-    val getTransfersByAccountsIdAndPeriod: GetTransfersByAccountsIdAndPeriodUseCase
+    val getTransfersByAccountAndPeriod: GetTransfersByAccountsIdAndPeriodUseCase,
+    val getTransfersByPeriod: GetTransferByPeriodUseCase
 )
 
 class GetTransfersByAccountsIdAndPeriodUseCase(private val repository: TransferRepository) {
@@ -24,5 +22,12 @@ class GetTransfersByAccountsIdAndPeriodUseCase(private val repository: TransferR
         operationType: OperationType,
         period: Period
     ): Flow<List<Transfer>> =
-        repository.getTransfersByAccountIdAndPeriod(accountId, operationType, period)
+        repository.getTransfersByAccountAndTypeAndPeriod(accountId, operationType, period)
+}
+
+class GetTransferByPeriodUseCase(private val repository: TransferRepository) {
+
+    operator fun invoke(
+        period: Period
+    ): Flow<List<Transfer>> = repository.getTransfersByPeriod(period)
 }

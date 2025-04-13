@@ -2,11 +2,15 @@ package com.example.finance.ui.screens.transfer
 
 sealed interface TransferUiEvent {
 
-    data class OnNewFromAccountSelected(val accountId: Int) : TransferUiEvent
+    data class OnFromAccountSelected(val accountId: Int) : TransferUiEvent
 
-    data class OnNewToAccountSelected(val accountId: Int) : TransferUiEvent
+    data class OnToAccountSelected(val accountId: Int) : TransferUiEvent
 
-    data class OnNewDateSelected(val date: Long) : TransferUiEvent
+    data class OnDateSelected(val date: Long) : TransferUiEvent
+
+    data class OnTransferSumChanged(val sum: String) : TransferUiEvent
+
+    data class OnCommentChanged(val comment: String) : TransferUiEvent
 
     data object OnSaveButtonClick : TransferUiEvent
 
@@ -24,5 +28,5 @@ sealed interface TransferUiEvent {
 
     data object OnConfirmDeleteTransferDialog : TransferUiEvent
 
-    data object OnFocusRequested : TransferUiEvent
+    data object OnBackIconClick : TransferUiEvent
 }

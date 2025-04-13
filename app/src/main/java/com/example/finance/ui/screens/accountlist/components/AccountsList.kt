@@ -71,7 +71,7 @@ private fun AccountItem(
             )
 
             Text(
-                text = "${account.sum} ₽",
+                text = "${account.balance} ₽",
                 style = MaterialTheme.typography.displayMedium
             )
         }
@@ -83,7 +83,7 @@ private fun AccountItem(
 private fun AccountItemPreview() {
     FinanceTheme {
         AccountItem(
-            account = Account(id = 0, name = "Основной", sum = 100000),
+            account = Account(id = 0, name = "Основной", balance = 100000),
             onClick = {},
             modifier = Modifier.fillMaxWidth()
         )

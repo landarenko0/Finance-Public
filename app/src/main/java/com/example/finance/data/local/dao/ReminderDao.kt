@@ -8,12 +8,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ReminderDao : BaseDao<ReminderDb> {
 
-    @Query("SELECT * FROM reminderdb ORDER BY id DESC")
+    @Query("SELECT * FROM reminderdb")
     fun getAll(): Flow<List<ReminderDb>>
 
     @Query("SELECT * FROM reminderdb WHERE id = :reminderId")
     suspend fun getReminderById(reminderId: Int): ReminderDb
-
-    @Query("DELETE FROM reminderdb WHERE id = :reminderId")
-    suspend fun deleteReminderById(reminderId: Int)
 }

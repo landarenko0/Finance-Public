@@ -3,19 +3,14 @@ package com.example.finance.domain.entities.mappers
 import com.example.finance.data.local.entities.OperationDbExtended
 import com.example.finance.domain.entities.Operation
 
-class OperationDbExtendedToDomainMapper(
-    private val categoryDbToDomainMapper: CategoryDbToDomainMapper,
-    private val subcategoryDbToDomainMapper: SubcategoryDbToDomainMapper,
-    private val accountDbToDomainMapper: AccountDbToDomainMapper
-) : (OperationDbExtended) -> Operation {
+fun OperationDbExtended.toDomain(): Operation = Operation(
+    id = this.operation.id,
+    category = this.category.toDomain(),
+    subcategory = this.subcategory?.toDomain(),
+    account = this.account.toDomain(),
+    sum = this.operation.sum,
+    date = this.operation.date,
+    comment = this.operation.comment
+)
 
-    override fun invoke(operationDb: OperationDbExtended): Operation = Operation(
-        id = operationDb.operation.id,
-        category = categoryDbToDomainMapper(operationDb.category),
-        subcategory = operationDb.subcategory?.let(subcategoryDbToDomainMapper),
-        account = accountDbToDomainMapper(operationDb.account),
-        sum = operationDb.operation.sum,
-        date = operationDb.operation.date,
-        comment = operationDb.operation.comment
-    )
-}
+fun List<OperationDbExtended>.toDomain(): List<Operation> = this.map { it.toDomain() }

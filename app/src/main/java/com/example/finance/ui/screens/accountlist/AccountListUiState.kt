@@ -4,5 +4,5 @@ import com.example.finance.domain.entities.Account
 
 data class AccountListUiState(
     val accounts: List<Account> = emptyList(),
-    val totalSum: Long = 0
+    val totalBalance: Long = 0
 )

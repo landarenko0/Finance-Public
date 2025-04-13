@@ -3,11 +3,10 @@ package com.example.finance.domain.entities.mappers
 import com.example.finance.data.local.entities.CategoryDb
 import com.example.finance.domain.entities.Category
 
-class CategoryDbToDomainMapper : (CategoryDb) -> Category {
+fun CategoryDb.toDomain(): Category = Category(
+    id = this.id,
+    name = this.name,
+    type = this.type
+)
 
-    override fun invoke(categoryDb: CategoryDb): Category = Category(
-        id = categoryDb.id,
-        name = categoryDb.name,
-        type = categoryDb.type
-    )
-}
+fun List<CategoryDb>.toDomain(): List<Category> = this.map { it.toDomain() }

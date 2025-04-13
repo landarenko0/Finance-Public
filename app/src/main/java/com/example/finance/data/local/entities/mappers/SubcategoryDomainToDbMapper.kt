@@ -3,11 +3,10 @@ package com.example.finance.data.local.entities.mappers
 import com.example.finance.data.local.entities.SubcategoryDb
 import com.example.finance.domain.entities.Subcategory
 
-class SubcategoryDomainToDbMapper : (Subcategory) -> SubcategoryDb {
+fun Subcategory.toDb(): SubcategoryDb = SubcategoryDb(
+    id = this.id,
+    name = this.name,
+    categoryId = this.categoryId
+)
 
-    override fun invoke(subcategory: Subcategory): SubcategoryDb = SubcategoryDb(
-        id = subcategory.id,
-        name = subcategory.name,
-        categoryId = subcategory.categoryId
-    )
-}
+fun List<Subcategory>.toDb(): List<SubcategoryDb> = this.map { it.toDb() }

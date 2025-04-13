@@ -6,42 +6,39 @@ import com.example.finance.domain.entities.OperationType
 import com.example.finance.domain.usecases.CategoryInteractor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class CategoryListViewModel @Inject constructor(
-    private val categoryInteractor: CategoryInteractor
+    categoryInteractor: CategoryInteractor
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(CategoryListUiState())
-    val uiState: StateFlow<CategoryListUiState> = _uiState.asStateFlow()
+    private val selectedOperationType = MutableStateFlow(OperationType.EXPENSES)
 
-    init {
-        viewModelScope.launch {
-            categoryInteractor
-                .getAllCategories()
-                .map { it.reversed() }
-                .collect { categories ->
-                    _uiState.update {
-                        it.copy(
-                            expensesCategories = categories.filter { category ->
-                                category.type == OperationType.EXPENSES
-                            },
-                            incomeCategories = categories.filter { category ->
-                                category.type == OperationType.INCOME
-                            }
-                        )
-                    }
-                }
-        }
-    }
+    private val expensesCategories = categoryInteractor.getCategoriesByType(OperationType.EXPENSES)
+    private val incomeCategories = categoryInteractor.getCategoriesByType(OperationType.INCOME)
+
+    val uiState = combine(
+        selectedOperationType,
+        expensesCategories,
+        incomeCategories
+    ) { operationType, expenses, income ->
+        CategoryListUiState(
+            selectedOperationType = operationType,
+            expensesCategories = expenses,
+            incomeCategories = income
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = CategoryListUiState()
+    )
 
     fun updateOperationType(operationType: OperationType) {
-        _uiState.update { it.copy(selectedOperationType = operationType) }
+        selectedOperationType.update { operationType }
     }
 }

@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface CategoryDao : BaseDao<CategoryDb> {
 
-    @Query("SELECT * FROM categorydb ORDER BY id DESC")
+    @Query("SELECT * FROM categorydb")
     fun getAll(): Flow<List<CategoryDb>>
 
     @Query("SELECT * FROM categorydb WHERE id = :categoryId")
@@ -22,8 +22,5 @@ interface CategoryDao : BaseDao<CategoryDb> {
 
     @Transaction
     @Query("SELECT * FROM categorydb WHERE id = :categoryId")
-    suspend fun getCategoryWithSubcategoriesById(categoryId: Int): CategoryWithSubcategoriesDb
-
-    @Query("DELETE FROM categorydb WHERE id = :categoryId")
-    suspend fun deleteCategoryById(categoryId: Int)
+    fun getCategoryWithSubcategoriesById(categoryId: Int): Flow<CategoryWithSubcategoriesDb?>
 }

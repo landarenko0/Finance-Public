@@ -3,7 +3,9 @@ package com.example.finance.ui.screens.operationsbycategory.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,29 +19,39 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.finance.domain.entities.Operation
 import com.example.finance.domain.entities.OperationType
+import com.example.finance.ui.common.LocalDateText
+import java.time.LocalDate
 
 @Composable
 fun OperationList(
-    operations: List<Operation>,
+    operations: Map<LocalDate, List<Operation>>,
     onOperationClick: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // TODO: Сделать группировку операций по датам
-
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(4.dp),
         contentPadding = PaddingValues(bottom = 24.dp),
         modifier = modifier
     ) {
-        items(
-            items = operations,
-            key = { it.id }
-        ) { operation ->
-            OperationItem(
-                operation = operation,
-                onClick = onOperationClick,
-                modifier = Modifier.fillMaxWidth()
-            )
+        if (operations.isNotEmpty()) {
+            operations.forEach { (date, operations) ->
+                item { LocalDateText(date) }
+
+                items(
+                    items = operations,
+                    key = { it.id }
+                ) { operation ->
+                    OperationItem(
+                        operation = operation,
+                        onClick = onOperationClick,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                item { Spacer(Modifier.height(4.dp)) }
+            }
+        } else {
+            item { Text(text = "Нет операций") }
         }
     }
 }

@@ -2,8 +2,6 @@ package com.example.finance.ui.screens.categorywithsubcategories
 
 sealed interface CategoryWithSubcategoriesUiEvent {
 
-    data object OnComposition : CategoryWithSubcategoriesUiEvent
-
     data object OnDeleteIconClick : CategoryWithSubcategoriesUiEvent
 
     data object OnCloseIconClick : CategoryWithSubcategoriesUiEvent

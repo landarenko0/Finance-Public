@@ -9,5 +9,5 @@ interface CategoryRepository : BaseRepository<Category> {
 
     fun getCategoriesByType(type: OperationType): Flow<List<Category>>
 
-    suspend fun getCategoryWithSubcategoriesById(categoryId: Int): CategoryWithSubcategories
+    fun getCategoryWithSubcategoriesById(categoryId: Int): Flow<CategoryWithSubcategories?>
 }

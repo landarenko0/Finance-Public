@@ -12,13 +12,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import com.example.finance.ui.navigation.AppScreens
 import kotlinx.coroutines.launch
 
 @Composable
 fun AppNavigationDrawer(
-    selectedIndex: Int,
+    currentScreens: AppScreens,
     drawerState: DrawerState,
-    onNavigationItemClick: (Int) -> Unit,
+    onNavigationItemClick: (AppScreens) -> Unit,
+    gesturesEnabled: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
@@ -27,7 +29,7 @@ fun AppNavigationDrawer(
     ModalNavigationDrawer(
         drawerContent = {
             ModalDrawerSheet {
-                NavigationItems.forEachIndexed { index, item ->
+                NavigationItems.forEach { item ->
                     NavigationDrawerItem(
                         label = {
                             Text(
@@ -35,14 +37,14 @@ fun AppNavigationDrawer(
                                 style = MaterialTheme.typography.displaySmall
                             )
                         },
-                        selected = index == selectedIndex,
+                        selected = item.screen == currentScreens,
                         onClick = {
-                            onNavigationItemClick(index)
+                            onNavigationItemClick(item.screen)
                             scope.launch { drawerState.close() }
                         },
                         icon = {
                             Icon(
-                                imageVector = if (index == selectedIndex) item.selectedIcon else item.unselectedIcon,
+                                imageVector = if (item.screen == currentScreens) item.selectedIcon else item.unselectedIcon,
                                 contentDescription = null
                             )
                         },
@@ -52,6 +54,7 @@ fun AppNavigationDrawer(
             }
         },
         drawerState = drawerState,
+        gesturesEnabled = gesturesEnabled,
         content = content,
         modifier = modifier
     )

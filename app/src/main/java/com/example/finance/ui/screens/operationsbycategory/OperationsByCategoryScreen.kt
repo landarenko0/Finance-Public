@@ -22,10 +22,10 @@ import com.example.finance.ui.screens.operationsbycategory.components.TransferLi
 
 @Composable
 fun OperationsByCategoryScreen(
-    onBackIconClick: () -> Unit,
-    onFloatingButtonClick: (OperationType, Int, Int?) -> Unit,
-    onOperationClick: (Int) -> Unit,
-    onTransferClick: (Int) -> Unit,
+    navigateBack: () -> Unit,
+    navigateToCreateOperationOrTransferScreen: (OperationType, Int, Int?) -> Unit,
+    navigateToEditOperationScreen: (Int) -> Unit,
+    navigateToEditTransferScreen: (Int) -> Unit,
     viewModel: OperationsByCategoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -39,13 +39,13 @@ fun OperationsByCategoryScreen(
                         totalSum = uiState.transactionsSum
                     )
                 },
-                onBackIconClick = onBackIconClick
+                onBackIconClick = navigateBack
             )
         },
         floatingActionButton = {
             AddFloatingActionButton(
                 onClick = {
-                    onFloatingButtonClick(
+                    navigateToCreateOperationOrTransferScreen(
                         uiState.operationType,
                         uiState.accountId,
                         uiState.categoryId
@@ -60,8 +60,8 @@ fun OperationsByCategoryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = paddingValues.calculateTopPadding() + 12.dp)
-                .padding(horizontal = 16.dp)
+                .padding(paddingValues)
+                .padding(vertical = 12.dp, horizontal = 16.dp)
         ) {
             PeriodText(period = uiState.period)
 
@@ -69,7 +69,7 @@ fun OperationsByCategoryScreen(
                 is OperationsByCategoryDetails.Operations -> {
                     OperationList(
                         operations = details.operations,
-                        onOperationClick = onOperationClick
+                        onOperationClick = navigateToEditOperationScreen
                     )
                 }
 
@@ -77,7 +77,7 @@ fun OperationsByCategoryScreen(
                     TransferList(
                         transfers = details.transfers,
                         operationType = uiState.operationType,
-                        onTransferClick = onTransferClick
+                        onTransferClick = navigateToEditTransferScreen
                     )
                 }
 

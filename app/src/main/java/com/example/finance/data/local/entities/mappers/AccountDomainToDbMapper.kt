@@ -3,11 +3,10 @@ package com.example.finance.data.local.entities.mappers
 import com.example.finance.data.local.entities.AccountDb
 import com.example.finance.domain.entities.Account
 
-class AccountDomainToDbMapper : (Account) -> AccountDb {
+fun Account.toDb(): AccountDb = AccountDb(
+    id = this.id,
+    name = this.name,
+    sum = this.balance
+)
 
-    override fun invoke(account: Account): AccountDb = AccountDb(
-        id = account.id,
-        name = account.name,
-        sum = account.sum
-    )
-}
+fun List<Account>.toDb(): List<AccountDb> = this.map { it.toDb() }

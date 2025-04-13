@@ -8,17 +8,18 @@ import androidx.navigation.toRoute
 import com.example.finance.domain.entities.Transfer
 import com.example.finance.domain.usecases.AccountInteractor
 import com.example.finance.domain.usecases.TransferInteractor
-import com.example.finance.ui.navigation.AppScreens
+import com.example.finance.ui.navigation.TransferScreen
+import com.example.finance.utils.toLocalDate
+import com.example.finance.utils.toMillis
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.ZoneId
 import javax.inject.Inject
 
 @HiltViewModel
@@ -31,33 +32,37 @@ class TransferViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(TransferUiState())
     val uiState: StateFlow<TransferUiState> = _uiState.asStateFlow()
 
-    private val transferId = savedStateHandle.toRoute<AppScreens.TransferScreen>().transferId
+    private val _event = Channel<TransferEvent>()
+    val event = _event.receiveAsFlow()
+
+    private val transferId = savedStateHandle.toRoute<TransferScreen>().transferId
 
     init {
         viewModelScope.launch {
-            if (transferId != null) {
-                _uiState.value = _uiState.value.copy(details = TransferDetails.EditTransfer())
+            val accounts = accountInteractor.getAllAccounts().first()
 
+            if (transferId != null) {
                 transferInteractor.getTransferById(transferId).also { transfer ->
                     _uiState.update {
                         it.copy(
+                            accounts = accounts,
                             transferSum = transfer.sum.toString(),
                             selectedFromAccount = transfer.fromAccount,
                             selectedToAccount = transfer.toAccount,
-                            selectedDate = transfer.date.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-                            comment = transfer.comment
+                            selectedDate = transfer.date.toMillis(),
+                            comment = transfer.comment,
+                            details = TransferDetails.EditTransfer()
                         )
                     }
                 }
             } else {
-                _uiState.value = _uiState.value.copy(details = TransferDetails.CreateTransfer)
+                _uiState.update {
+                    it.copy(
+                        accounts = accounts,
+                        details = TransferDetails.CreateTransfer
+                    )
+                }
             }
-
-            accountInteractor
-                .getAllAccounts()
-                .map { it.reversed() }
-                .first()
-                .also { accounts -> _uiState.update { it.copy(accounts = accounts) } }
         }
     }
 
@@ -72,7 +77,9 @@ class TransferViewModel @Inject constructor(
             TransferUiEvent.OnDeleteIconClick -> {
                 _uiState.update {
                     it.copy(
-                        details = (it.details as TransferDetails.EditTransfer).copy(showDeleteTransferDialog = true)
+                        details = (it.details as TransferDetails.EditTransfer).copy(
+                            showDeleteTransferDialog = true
+                        )
                     )
                 }
             }
@@ -91,13 +98,11 @@ class TransferViewModel @Inject constructor(
             TransferUiEvent.OnDismissDeleteTransferDialog -> {
                 _uiState.update {
                     it.copy(
-                        details = (it.details as TransferDetails.EditTransfer).copy(showDeleteTransferDialog = false)
+                        details = (it.details as TransferDetails.EditTransfer).copy(
+                            showDeleteTransferDialog = false
+                        )
                     )
                 }
-            }
-
-            TransferUiEvent.OnFocusRequested -> {
-                _uiState.update { it.copy(requestTransferSumFocus = false) }
             }
 
             TransferUiEvent.OnFromAccountPickerClick -> {
@@ -108,7 +113,7 @@ class TransferViewModel @Inject constructor(
                 _uiState.update { it.copy(showSelectToAccountDialog = true) }
             }
 
-            is TransferUiEvent.OnNewDateSelected -> {
+            is TransferUiEvent.OnDateSelected -> {
                 _uiState.update {
                     it.copy(
                         selectedDate = uiEvent.date,
@@ -117,22 +122,43 @@ class TransferViewModel @Inject constructor(
                 }
             }
 
-            is TransferUiEvent.OnNewFromAccountSelected -> updateFromAccount(uiEvent.accountId)
+            is TransferUiEvent.OnFromAccountSelected -> updateFromAccount(uiEvent.accountId)
 
-            is TransferUiEvent.OnNewToAccountSelected -> updateToAccount(uiEvent.accountId)
+            is TransferUiEvent.OnToAccountSelected -> updateToAccount(uiEvent.accountId)
 
             TransferUiEvent.OnSaveButtonClick -> saveTransfer()
+
+            is TransferUiEvent.OnCommentChanged -> {
+                if (uiEvent.comment.length <= 100) {
+                    _uiState.update { it.copy(comment = uiEvent.comment) }
+                }
+            }
+
+            is TransferUiEvent.OnTransferSumChanged -> {
+                if (uiEvent.sum.isDigitsOnly() && uiEvent.sum.length <= 12) {
+                    _uiState.update {
+                        it.copy(
+                            transferSum = uiEvent.sum,
+                            transferSumError = false
+                        )
+                    }
+                }
+            }
+
+            TransferUiEvent.OnBackIconClick -> {
+                viewModelScope.launch { _event.send(TransferEvent.CloseScreen) }
+            }
         }
     }
 
     private fun saveTransfer() {
-        if (!validateTransfer()) return
+        if (!validateInput()) return
 
         viewModelScope.launch {
             val transferSum = _uiState.value.transferSum.toLong()
             val selectedFromAccount = _uiState.value.selectedFromAccount!!
             val selectedToAccount = _uiState.value.selectedToAccount!!
-            val selectedDate = _uiState.value.selectedDate
+            val selectedDate = _uiState.value.selectedDate.toLocalDate()
             val comment = _uiState.value.comment.trim()
 
             when (_uiState.value.details) {
@@ -143,59 +169,56 @@ class TransferViewModel @Inject constructor(
                             fromAccount = selectedFromAccount,
                             toAccount = selectedToAccount,
                             sum = transferSum,
-                            date = Instant.ofEpochMilli(selectedDate).atZone(ZoneId.systemDefault()).toLocalDate(),
+                            date = selectedDate,
                             comment = comment
                         )
                     )
-
-                    makeTransaction(selectedFromAccount.id, selectedToAccount.id, transferSum)
                 }
 
                 is TransferDetails.EditTransfer -> {
                     transferId?.let {
-                        val oldTransfer = transferInteractor.getTransferById(transferId)
-
-                        // revert old transaction
-                        makeTransaction(
-                            oldTransfer.toAccount.id,
-                            oldTransfer.fromAccount.id,
-                            oldTransfer.sum
-                        )
-
-                        transferInteractor.addTransfer(
-                            oldTransfer.copy(
-                                fromAccount = selectedFromAccount,
-                                toAccount = selectedToAccount,
-                                sum = transferSum,
-                                date = Instant.ofEpochMilli(selectedDate).atZone(ZoneId.systemDefault()).toLocalDate(),
-                                comment = comment
+                        transferInteractor.getTransferById(transferId).also { oldTransfer ->
+                            transferInteractor.updateTransfer(
+                                oldTransfer.copy(
+                                    fromAccount = selectedFromAccount,
+                                    toAccount = selectedToAccount,
+                                    sum = transferSum,
+                                    date = selectedDate,
+                                    comment = comment
+                                )
                             )
-                        )
 
-                        makeTransaction(selectedFromAccount.id, selectedToAccount.id, transferSum)
+                            accountInteractor.transferMoneyFromOneAccountToAnother(
+                                oldTransfer.toAccount.id,
+                                oldTransfer.fromAccount.id,
+                                oldTransfer.sum
+                            )
+                        }
                     }
                 }
 
                 TransferDetails.Initial -> {}
             }
 
-            _uiState.update { it.copy(closeScreen = true) }
+            accountInteractor.transferMoneyFromOneAccountToAnother(
+                selectedFromAccount.id,
+                selectedToAccount.id,
+                transferSum
+            )
+
+            _event.send(TransferEvent.CloseScreen)
         }
     }
 
-    private fun validateTransfer(): Boolean {
+    private fun validateInput(): Boolean {
         val transferSum = _uiState.value.transferSum
         val selectedFromAccount = _uiState.value.selectedFromAccount
         val selectedToAccount = _uiState.value.selectedToAccount
 
         when {
             transferSum.isEmpty() || transferSum.toLongOrNull() == null || transferSum.toLongOrNull() == 0L -> {
-                _uiState.update {
-                    it.copy(
-                        transferSumError = true,
-                        requestTransferSumFocus = true
-                    )
-                }
+                _uiState.update { it.copy(transferSumError = true) }
+                viewModelScope.launch { _event.send(TransferEvent.RequestTransferSumFocus) }
             }
 
             selectedFromAccount == null -> {
@@ -235,33 +258,26 @@ class TransferViewModel @Inject constructor(
     private fun deleteTransfer() {
         viewModelScope.launch {
             transferId?.let {
-                val oldTransfer = transferInteractor.getTransferById(transferId)
+                transferInteractor.getTransferById(transferId).also { oldTransfer ->
+                    transferInteractor.deleteTransfer(oldTransfer)
 
-                transferInteractor.deleteTransfer(oldTransfer)
-
-                // revert old transaction
-                makeTransaction(oldTransfer.toAccount.id, oldTransfer.fromAccount.id, oldTransfer.sum)
-
-                _uiState.update { it.copy(closeScreen = true) }
+                    accountInteractor.transferMoneyFromOneAccountToAnother(
+                        oldTransfer.toAccount.id,
+                        oldTransfer.fromAccount.id,
+                        oldTransfer.sum
+                    )
+                }
             }
-        }
-    }
 
-    private suspend fun makeTransaction(
-        fromAccountId: Int,
-        toAccountId: Int,
-        sum: Long
-    ) {
-        accountInteractor.getAccountById(fromAccountId).also { fromAccount ->
-            accountInteractor.updateAccount(
-                fromAccount.copy(sum = fromAccount.sum - sum)
-            )
-        }
+            _uiState.update {
+                it.copy(
+                    details = (it.details as TransferDetails.EditTransfer).copy(
+                        showDeleteTransferDialog = false
+                    )
+                )
+            }
 
-        accountInteractor.getAccountById(toAccountId).also { toAccount ->
-            accountInteractor.updateAccount(
-                toAccount.copy(sum = toAccount.sum + sum)
-            )
+            _event.send(TransferEvent.CloseScreen)
         }
     }
 
@@ -297,20 +313,5 @@ class TransferViewModel @Inject constructor(
         } else {
             _uiState.update { it.copy(showSelectToAccountDialog = false) }
         }
-    }
-
-    fun onTransferSumChanged(transferSum: String) {
-        if (transferSum.isDigitsOnly() && transferSum.length <= 12) {
-            _uiState.update {
-                it.copy(
-                    transferSum = transferSum,
-                    transferSumError = false
-                )
-            }
-        }
-    }
-
-    fun onCommentChanged(comment: String) {
-        if (comment.length <= 100) _uiState.update { it.copy(comment = comment) }
     }
 }

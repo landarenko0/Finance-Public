@@ -3,7 +3,9 @@ package com.example.finance.ui.screens.operationsbycategory.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,37 +19,47 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.finance.domain.entities.OperationType
 import com.example.finance.domain.entities.Transfer
+import com.example.finance.ui.common.LocalDateText
+import java.time.LocalDate
 
 @Composable
 fun TransferList(
-    transfers: List<Transfer>,
+    transfers: Map<LocalDate, List<Transfer>>,
     operationType: OperationType,
     onTransferClick: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // TODO: Сделать группировку операций по датам
-
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(4.dp),
         contentPadding = PaddingValues(bottom = 24.dp),
         modifier = modifier
     ) {
-        items(
-            items = transfers,
-            key = { it.id }
-        ) { transfer ->
-            val sign = when (operationType) {
-                OperationType.OUTCOME_TRANSFER -> "-"
-                OperationType.INCOME_TRANSFER -> "+"
-                else -> ""
-            }
+        if (transfers.isNotEmpty()) {
+            transfers.forEach { (date, transfers) ->
+                item { LocalDateText(date) }
 
-            TransferItem(
-                transfer = transfer,
-                sign = sign,
-                onClick = onTransferClick,
-                modifier = Modifier.fillMaxWidth()
-            )
+                items(
+                    items = transfers,
+                    key = { it.id }
+                ) { transfer ->
+                    val sign = when (operationType) {
+                        OperationType.OUTCOME_TRANSFER -> "-"
+                        OperationType.INCOME_TRANSFER -> "+"
+                        else -> ""
+                    }
+
+                    TransferItem(
+                        transfer = transfer,
+                        sign = sign,
+                        onClick = onTransferClick,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                item { Spacer(Modifier.height(4.dp)) }
+            }
+        } else {
+            item { Text(text = "Нет переводов") }
         }
     }
 }

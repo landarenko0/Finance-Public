@@ -7,11 +7,14 @@ import androidx.navigation.toRoute
 import com.example.finance.domain.entities.Subcategory
 import com.example.finance.domain.usecases.CategoryInteractor
 import com.example.finance.domain.usecases.SubcategoryInteractor
-import com.example.finance.ui.navigation.AppScreens
+import com.example.finance.ui.navigation.CategoryWithSubcategoriesScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -19,23 +22,39 @@ import javax.inject.Inject
 @HiltViewModel
 class CategoryWithSubcategoriesViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val categoryInteractor: CategoryInteractor,
+    categoryInteractor: CategoryInteractor,
     private val subcategoryInteractor: SubcategoryInteractor
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CategoryWithSubcategoriesUiState())
     val uiState: StateFlow<CategoryWithSubcategoriesUiState> = _uiState.asStateFlow()
 
-    private val categoryId = savedStateHandle.toRoute<AppScreens.CategoryWithSubcategoriesScreen>().categoryId
+    private val categoryId = savedStateHandle.toRoute<CategoryWithSubcategoriesScreen>().categoryId
+
+    init {
+        categoryInteractor.getCategoryWithSubcategoriesById(categoryId)
+            .filterNotNull()
+            .onEach { categoryWithSubcategories ->
+                _uiState.update {
+                    it.copy(
+                        category = categoryWithSubcategories.category,
+                        subcategories = categoryWithSubcategories.subcategories
+                    )
+                }
+            }
+            .launchIn(viewModelScope)
+    }
 
     fun onUiEvent(uiEvent: CategoryWithSubcategoriesUiEvent) {
         when (uiEvent) {
             CategoryWithSubcategoriesUiEvent.OnCloseIconClick -> {
-                _uiState.update { it.copy(deleteSubcategoriesEnabled = false) }
-                _uiState.value.selectedSubcategories.clear()
+                _uiState.update {
+                    it.copy(
+                        selectedSubcategories = emptyList(),
+                        deleteSubcategoriesEnabled = false
+                    )
+                }
             }
-
-            CategoryWithSubcategoriesUiEvent.OnComposition -> updateCategory()
 
             CategoryWithSubcategoriesUiEvent.OnConfirmDeleteSubcategoriesDialog -> {
                 deleteSubcategories(_uiState.value.selectedSubcategories.toList())
@@ -63,17 +82,26 @@ class CategoryWithSubcategoriesViewModel @Inject constructor(
                 _uiState.update { it.copy(showSubcategoryDialog = true) }
             }
 
-            is CategoryWithSubcategoriesUiEvent.OnSubcategoryClick -> onSubcategoryClick(uiEvent.subcategoryId)
+            is CategoryWithSubcategoriesUiEvent.OnSubcategoryClick -> {
+                onSubcategoryClick(uiEvent.subcategoryId)
+            }
 
             is CategoryWithSubcategoriesUiEvent.OnLongSubcategoryClick -> {
                 _uiState.update { it.copy(deleteSubcategoriesEnabled = true) }
 
                 if (uiEvent.subcategoryId !in _uiState.value.selectedSubcategories) {
-                    _uiState.value.selectedSubcategories.add(uiEvent.subcategoryId)
+                    val selectedSubcategories = _uiState.value.selectedSubcategories.toMutableList()
+                    selectedSubcategories += uiEvent.subcategoryId
+
+                    _uiState.update {
+                        it.copy(selectedSubcategories = selectedSubcategories.toList())
+                    }
                 }
             }
 
-            is CategoryWithSubcategoriesUiEvent.OnSaveButtonClick -> saveSubCategory(uiEvent.subcategoryName)
+            is CategoryWithSubcategoriesUiEvent.OnSaveButtonClick -> {
+                saveSubCategory(uiEvent.subcategoryName)
+            }
         }
     }
 
@@ -81,18 +109,16 @@ class CategoryWithSubcategoriesViewModel @Inject constructor(
         viewModelScope.launch {
             when (val selectedSubcategory = _uiState.value.selectedSubcategory) {
                 null -> {
-                    if (checkSubcategoryNameCollision(subcategoryName, 0)) {
+                    if (subcategoryInteractor.checkSubcategoryNameCollision(subcategoryName, categoryId)) {
                         _uiState.update { it.copy(showSubcategoryNameCollisionDialog = true) }
                     } else {
                         subcategoryInteractor.addSubcategory(
                             Subcategory(
                                 id = 0,
-                                categoryId = _uiState.value.category.id,
+                                categoryId = categoryId,
                                 name = subcategoryName
                             )
                         )
-
-                        updateCategory()
 
                         _uiState.update {
                             it.copy(
@@ -104,14 +130,12 @@ class CategoryWithSubcategoriesViewModel @Inject constructor(
                 }
 
                 else -> {
-                    if (checkSubcategoryNameCollision(subcategoryName, selectedSubcategory.id)) {
+                    if (subcategoryInteractor.checkSubcategoryNameCollisionExcept(subcategoryName, categoryId, selectedSubcategory.id)) {
                         _uiState.update { it.copy(showSubcategoryNameCollisionDialog = true) }
                     } else {
                         subcategoryInteractor.updateSubcategory(
                             selectedSubcategory.copy(name = subcategoryName)
                         )
-
-                        updateCategory()
 
                         _uiState.update {
                             it.copy(
@@ -125,59 +149,47 @@ class CategoryWithSubcategoriesViewModel @Inject constructor(
         }
     }
 
-    private fun checkSubcategoryNameCollision(
-        subcategoryName: String,
-        exceptSubcategoryId: Int
-    ): Boolean {
-        return _uiState.value.subcategories.find { it.name == subcategoryName && it.id != exceptSubcategoryId } != null
-    }
-
-    private fun updateCategory() {
-        viewModelScope.launch {
-            val categoryWithSubcategories = categoryInteractor.getCategoryWithSubcategoriesById(categoryId)
-
-            _uiState.update {
-                it.copy(
-                    category = categoryWithSubcategories.category,
-                    subcategories = categoryWithSubcategories.subcategories
-                )
-            }
-        }
-    }
-
     private fun deleteSubcategories(subcategoriesIds: List<Int>) {
         viewModelScope.launch {
             subcategoryInteractor.deleteSubcategoriesByIds(subcategoriesIds)
-            updateCategory()
 
             _uiState.update {
                 it.copy(
+                    selectedSubcategories = emptyList(),
                     deleteSubcategoriesEnabled = false,
                     showDeleteSubcategoriesDialog = false
                 )
             }
-
-            _uiState.value.selectedSubcategories.clear()
         }
     }
 
     private fun onSubcategoryClick(subcategoryId: Int) {
         if (!_uiState.value.deleteSubcategoriesEnabled) {
-            _uiState.update {
-                it.copy(
-                    selectedSubcategory = _uiState.value.subcategories.find { subcategory ->
-                        subcategory.id == subcategoryId
-                    },
-                    showSubcategoryDialog = true
-                )
+            viewModelScope.launch {
+                _uiState.update {
+                    it.copy(
+                        selectedSubcategory = subcategoryInteractor.getSubcategoryById(subcategoryId),
+                        showSubcategoryDialog = true
+                    )
+                }
             }
         } else {
+            val selectedSubcategories = _uiState.value.selectedSubcategories.toMutableList()
+
             when {
                 subcategoryId in _uiState.value.selectedSubcategories -> {
-                    _uiState.value.selectedSubcategories.remove(subcategoryId)
+                    selectedSubcategories.remove(subcategoryId)
+                    _uiState.update {
+                        it.copy(selectedSubcategories = selectedSubcategories.toList())
+                    }
                 }
 
-                else -> _uiState.value.selectedSubcategories.add(subcategoryId)
+                else -> {
+                    selectedSubcategories.add(subcategoryId)
+                    _uiState.update {
+                        it.copy(selectedSubcategories = selectedSubcategories.toList())
+                    }
+                }
             }
         }
     }

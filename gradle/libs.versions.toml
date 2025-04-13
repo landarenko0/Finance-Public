@@ -1,18 +1,20 @@
 [versions]
-agp = "8.7.3"
+agp = "8.9.1"
 kotlin = "2.1.0"
-coreKtx = "1.15.0"
+coreKtx = "1.16.0"
 lifecycleRuntimeKtx = "2.8.7"
-activityCompose = "1.10.0"
-composeBom = "2025.01.00"
-room = "2.6.1"
+activityCompose = "1.10.1"
+composeBom = "2025.04.00"
+room = "2.7.0"
 hilt = "2.55"
+hilt-work = "1.2.0"
+hilt-androidx = "1.2.0"
 hiltNavigationCompose = "1.2.0"
-navigation = "2.8.5"
+navigation = "2.8.9"
 serialization = "1.8.0"
-dataStore = "1.1.2"
-charty = "1.1.3-alpha05"
+dataStore = "1.1.4"
 ksp = "2.1.0-1.0.29"
+workManager = "2.10.0"
 
 [libraries]
 # Core
@@ -37,15 +39,17 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 # Hilt
 dagger-hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 dagger-hilt-android-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
+hilt-androidx-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hilt-androidx" }
 # Navigation
 androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
+androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hilt-work" }
 # Serialization
 kotlinx-serialization = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 # DataStore
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "dataStore" }
-# Charty
-himanshoe-charty = { group = "com.himanshoe", name = "charty", version.ref = "charty" }
+# Work Manager
+androidx-workManager = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
 
 [bundles]
 core = [ "androidx-core-ktx" ]
@@ -53,11 +57,11 @@ lifecycle = [ "androidx-lifecycle-runtime-ktx" ]
 compose = [ "androidx-activity-compose", "androidx-ui", "androidx-ui-graphics", "androidx-ui-tooling-preview", "androidx-material3", "androidx-material3-material-icons-extended" ]
 compose-debug = [ "androidx-ui-tooling", "androidx-ui-test-manifest" ]
 room = [ "androidx-room-runtime", "androidx-room-ktx" ]
-hilt = [ "dagger-hilt-android" ]
+hilt = [ "dagger-hilt-android", "androidx-hilt-work" ]
 navigation = [ "androidx-hilt-navigation-compose", "androidx-navigation-compose" ]
 serialization = [ "kotlinx-serialization" ]
 dataStore = [ "androidx-datastore-preferences" ]
-charty = [ "himanshoe-charty" ]
+workManager = [ "androidx-workManager" ]
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

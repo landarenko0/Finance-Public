@@ -11,12 +11,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -34,6 +36,7 @@ import com.example.finance.ui.common.BackTopBar
 import com.example.finance.ui.common.ConfirmationDialog
 import com.example.finance.ui.common.DatePickerModalDialog
 import com.example.finance.ui.common.FinanceTextField
+import com.example.finance.ui.common.PastOrPresentSelectableDates
 import com.example.finance.ui.common.PickerWithTitle
 import com.example.finance.ui.common.SaveButton
 import com.example.finance.ui.common.SumTextField
@@ -45,7 +48,7 @@ import java.util.Locale
 
 @Composable
 fun OperationScreen(
-    onBackIconClick: () -> Unit,
+    navigateBack: () -> Unit,
     viewModel: OperationViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -64,25 +67,32 @@ fun OperationScreen(
             interactionSource = remember { MutableInteractionSource() }
         )
 
+    val operationSumFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        viewModel.event.collect { event ->
+            when (event) {
+                OperationEvent.CloseScreen -> navigateBack()
+                OperationEvent.RequestOperationSumFocus -> operationSumFocusRequester.requestFocus()
+            }
+        }
+    }
+
     when (uiState.details) {
         OperationDetails.CreateOperation -> {
             CreateOperationScreen(
-                onBackIconClick = onBackIconClick,
-                onOperationSumChanged = viewModel::onOperationSumChanged,
-                onCommentChanged = viewModel::onCommentChanged,
                 onUiEvent = viewModel::onUiEvent,
                 uiState = uiState,
+                operationSumFocusRequester = operationSumFocusRequester,
                 modifier = modifier
             )
         }
 
         is OperationDetails.EditOperation -> {
             EditOperationScreen(
-                onBackIconClick = onBackIconClick,
-                onOperationSumChanged = viewModel::onOperationSumChanged,
-                onCommentChanged = viewModel::onCommentChanged,
                 uiState = uiState,
                 onUiEvent = viewModel::onUiEvent,
+                operationSumFocusRequester = operationSumFocusRequester,
                 modifier = modifier
             )
         }
@@ -93,47 +103,37 @@ fun OperationScreen(
 
 @Composable
 private fun CreateOperationScreen(
-    onBackIconClick: () -> Unit,
-    onOperationSumChanged: (String) -> Unit,
-    onCommentChanged: (String) -> Unit,
     onUiEvent: (OperationUiEvent) -> Unit,
     uiState: OperationUiState,
+    operationSumFocusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
         topBar = {
             BackTopBar(
                 title = "Создание операции",
-                onBackIconClick = onBackIconClick,
+                onBackIconClick = { onUiEvent(OperationUiEvent.OnBackIconClick) },
                 modifier = Modifier.fillMaxWidth()
             )
         },
         modifier = modifier
     ) { paddingValues ->
         Screen(
-            onBackIconClick = onBackIconClick,
-            onOperationSumChanged = onOperationSumChanged,
-            onCommentChanged = onCommentChanged,
             onUiEvent = onUiEvent,
             uiState = uiState,
+            operationSumFocusRequester = operationSumFocusRequester,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
-                    top = paddingValues.calculateTopPadding() + 12.dp,
-                    bottom = 24.dp
-                )
-                .padding(horizontal = 16.dp),
+                .padding(paddingValues),
         )
     }
 }
 
 @Composable
 private fun EditOperationScreen(
-    onBackIconClick: () -> Unit,
-    onOperationSumChanged: (String) -> Unit,
-    onCommentChanged: (String) -> Unit,
     onUiEvent: (OperationUiEvent) -> Unit,
     uiState: OperationUiState,
+    operationSumFocusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
     val details = uiState.details as OperationDetails.EditOperation
@@ -142,7 +142,7 @@ private fun EditOperationScreen(
         topBar = {
             BackTopBar(
                 title = "Редактирование операции",
-                onBackIconClick = onBackIconClick,
+                onBackIconClick = { onUiEvent(OperationUiEvent.OnBackIconClick) },
                 actions = {
                     IconButton(onClick = { onUiEvent(OperationUiEvent.OnDeleteOperationIconClick) }) {
                         Icon(
@@ -157,18 +157,12 @@ private fun EditOperationScreen(
         modifier = modifier
     ) { paddingValues ->
         Screen(
-            onBackIconClick = onBackIconClick,
-            onOperationSumChanged = onOperationSumChanged,
-            onCommentChanged = onCommentChanged,
             onUiEvent = onUiEvent,
             uiState = uiState,
+            operationSumFocusRequester = operationSumFocusRequester,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
-                    top = paddingValues.calculateTopPadding() + 12.dp,
-                    bottom = 24.dp
-                )
-                .padding(horizontal = 16.dp),
+                .padding(paddingValues),
         )
     }
 
@@ -181,23 +175,20 @@ private fun EditOperationScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Screen(
-    onBackIconClick: () -> Unit,
-    onOperationSumChanged: (String) -> Unit,
-    onCommentChanged: (String) -> Unit,
     onUiEvent: (OperationUiEvent) -> Unit,
     uiState: OperationUiState,
+    operationSumFocusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
-    val operationSumFocusRequester = remember { FocusRequester() }
-
     val date = Date(uiState.selectedDate)
     val formattedDate = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(date)
 
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = modifier
+        modifier = modifier.padding(vertical = 12.dp, horizontal = 16.dp)
     ) {
         Row(
             horizontalArrangement = Arrangement.Center,
@@ -214,7 +205,7 @@ private fun Screen(
 
             SumTextField(
                 sum = uiState.operationSum,
-                onValueChange = onOperationSumChanged,
+                onValueChange = { onUiEvent(OperationUiEvent.OnOperationSumChanged(it)) },
                 isError = uiState.operationSumError,
                 modifier = Modifier.focusRequester(operationSumFocusRequester)
             )
@@ -248,7 +239,7 @@ private fun Screen(
 
         FinanceTextField(
             value = uiState.comment,
-            onValueChange = onCommentChanged,
+            onValueChange = { onUiEvent(OperationUiEvent.OnCommentChanged(it)) },
             label = "Комментарий",
             placeholder = "Напишите что-нибудь",
             maxLines = 5,
@@ -296,14 +287,8 @@ private fun Screen(
         DatePickerModalDialog(
             initialSelectedDate = uiState.selectedDate,
             onConfirmButtonClick = { onUiEvent(OperationUiEvent.OnNewDateSelected(it)) },
-            onDismiss = { onUiEvent(OperationUiEvent.OnDialogDismiss) }
+            onDismiss = { onUiEvent(OperationUiEvent.OnDialogDismiss) },
+            selectableDates = PastOrPresentSelectableDates
         )
-    }
-
-    if (uiState.closeScreen) onBackIconClick()
-
-    if (uiState.requestAccountSumFocus) {
-        operationSumFocusRequester.requestFocus()
-        onUiEvent(OperationUiEvent.OnFocusRequested)
     }
 }

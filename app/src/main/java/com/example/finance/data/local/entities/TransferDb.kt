@@ -2,6 +2,7 @@ package com.example.finance.data.local.entities
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.LocalDate
 
@@ -19,6 +20,10 @@ import java.time.LocalDate
             childColumns = ["toAccountId"],
             onDelete = ForeignKey.CASCADE
         )
+    ],
+    indices = [
+        Index("fromAccountId"),
+        Index("toAccountId")
     ]
 )
 data class TransferDb(

@@ -15,12 +15,7 @@ class GetObjectByIdUseCase<T>(private val repository: BaseRepository<T>) {
 
 class InsertUseCase<T>(private val repository: BaseRepository<T>) {
 
-    suspend operator fun invoke(obj: T) = repository.insert(obj)
-}
-
-class InsertAllUseCase<T>(private val repository: BaseRepository<T>) {
-
-    suspend operator fun invoke(objects: List<T>) = repository.insertAll(objects)
+    suspend operator fun invoke(obj: T): Long = repository.insert(obj)
 }
 
 class UpdateUseCase<T>(private val repository: BaseRepository<T>) {
@@ -31,9 +26,4 @@ class UpdateUseCase<T>(private val repository: BaseRepository<T>) {
 class DeleteUseCase<T>(private val repository: BaseRepository<T>) {
 
     suspend operator fun invoke(obj: T) = repository.delete(obj)
-}
-
-class DeleteObjectByIdUseCase<T>(private val repository: BaseRepository<T>) {
-
-    suspend operator fun invoke(objectId: Int) = repository.deleteObjectById(objectId)
 }

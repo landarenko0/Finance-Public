@@ -15,6 +15,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -28,18 +29,18 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.finance.ui.common.AccountPickerDialog
 import com.example.finance.ui.common.BackTopBar
 import com.example.finance.ui.common.ConfirmationDialog
 import com.example.finance.ui.common.FinanceTextField
 import com.example.finance.ui.common.MessageToUserDialog
 import com.example.finance.ui.common.SaveButton
-import com.example.finance.ui.common.AccountPickerDialog
 import com.example.finance.ui.common.SumTextField
 import com.example.finance.ui.screens.account.components.TransferAccountBalanceDialog
 
 @Composable
 fun AccountScreen(
-    onBackIconClick: () -> Unit,
+    navigateBack: () -> Unit,
     viewModel: AccountViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -58,76 +59,80 @@ fun AccountScreen(
             interactionSource = remember { MutableInteractionSource() }
         )
 
+    val accountBalanceFocusRequester = remember { FocusRequester() }
+    val accountNameFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        viewModel.event.collect { event ->
+            when (event) {
+                AccountEvent.CloseScreen -> navigateBack()
+                AccountEvent.RequestAccountBalanceFocus -> accountBalanceFocusRequester.requestFocus()
+                AccountEvent.RequestAccountNameFocus -> accountNameFocusRequester.requestFocus()
+            }
+        }
+    }
+
     when (uiState.details) {
         is AccountDetails.CreateAccount -> {
             CreateAccountScreen(
-                onBackIconClick = onBackIconClick,
-                onAccountSumChanged = viewModel::updateAccountSum,
-                onAccountNameChanged = viewModel::updateAccountName,
                 onUiEvent = viewModel::onUiEvent,
                 uiState = uiState,
+                accountBalanceFocusRequester = accountBalanceFocusRequester,
+                accountNameFocusRequester = accountNameFocusRequester,
                 modifier = modifier
             )
         }
 
         is AccountDetails.EditAccount -> {
             EditAccountScreen(
-                onBackIconClick = onBackIconClick,
-                onAccountSumChanged = viewModel::updateAccountSum,
-                onAccountNameChanged = viewModel::updateAccountName,
                 onUiEvent = viewModel::onUiEvent,
                 uiState = uiState,
+                accountBalanceFocusRequester = accountBalanceFocusRequester,
+                accountNameFocusRequester = accountNameFocusRequester,
                 modifier = modifier
             )
         }
 
-        AccountDetails.Initial-> {}
+        AccountDetails.Initial -> {}
     }
 }
 
 @Composable
 private fun CreateAccountScreen(
-    onBackIconClick: () -> Unit,
-    onAccountSumChanged: (String) -> Unit,
-    onAccountNameChanged: (String) -> Unit,
     onUiEvent: (AccountUiEvent) -> Unit,
     uiState: AccountUiState,
+    accountBalanceFocusRequester: FocusRequester,
+    accountNameFocusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
         topBar = {
             BackTopBar(
                 title = "Создание счета",
-                onBackIconClick = onBackIconClick,
+                onBackIconClick = { onUiEvent(AccountUiEvent.OnBackIconClick) },
                 modifier = Modifier.fillMaxWidth()
             )
         },
         modifier = modifier
     ) { paddingValues ->
         Screen(
-            onBackIconClick = onBackIconClick,
-            onAccountSumChanged = onAccountSumChanged,
-            onAccountNameChanged = onAccountNameChanged,
             onUiEvent = onUiEvent,
             uiState = uiState,
+            accountBalanceFocusRequester = accountBalanceFocusRequester,
+            accountNameFocusRequester = accountNameFocusRequester,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
-                    top = paddingValues.calculateTopPadding() + 12.dp,
-                    bottom = 24.dp
-                )
-                .padding(horizontal = 16.dp)
+                .padding(paddingValues)
         )
     }
 }
 
 @Composable
 private fun EditAccountScreen(
-    onBackIconClick: () -> Unit,
-    onAccountSumChanged: (String) -> Unit,
-    onAccountNameChanged: (String) -> Unit,
     onUiEvent: (AccountUiEvent) -> Unit,
     uiState: AccountUiState,
+    accountBalanceFocusRequester: FocusRequester,
+    accountNameFocusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
     val details = uiState.details as AccountDetails.EditAccount
@@ -136,7 +141,7 @@ private fun EditAccountScreen(
         topBar = {
             BackTopBar(
                 title = "Редактирование счета",
-                onBackIconClick = onBackIconClick,
+                onBackIconClick = { onUiEvent(AccountUiEvent.OnBackIconClick) },
                 actions = {
                     IconButton(onClick = { onUiEvent(AccountUiEvent.OnDeleteIconClick) }) {
                         Icon(
@@ -151,18 +156,13 @@ private fun EditAccountScreen(
         modifier = modifier
     ) { paddingValues ->
         Screen(
-            onBackIconClick = onBackIconClick,
-            onAccountSumChanged = onAccountSumChanged,
-            onAccountNameChanged = onAccountNameChanged,
             onUiEvent = onUiEvent,
             uiState = uiState,
+            accountBalanceFocusRequester = accountBalanceFocusRequester,
+            accountNameFocusRequester = accountNameFocusRequester,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
-                    top = paddingValues.calculateTopPadding() + 12.dp,
-                    bottom = 24.dp
-                )
-                .padding(horizontal = 16.dp)
+                .padding(paddingValues)
         )
     }
 
@@ -176,7 +176,7 @@ private fun EditAccountScreen(
 
     if (details.showTransferAccountBalanceDialog) {
         TransferAccountBalanceDialog(
-            accountSum = details.accountSum,
+            accountBalance = details.accountBalance,
             onConfirmButtonClick = { onUiEvent(AccountUiEvent.OnConfirmTransferAccountBalanceDialog) },
             onDismissButtonClick = { onUiEvent(AccountUiEvent.OnDismissTransferAccountBalanceDialog) },
             onDismissRequest = { onUiEvent(AccountUiEvent.OnDismissDialog) }
@@ -185,7 +185,7 @@ private fun EditAccountScreen(
 
     if (details.showSelectAccountDialog) {
         AccountPickerDialog(
-            accounts = uiState.accounts,
+            accounts = details.otherAccounts,
             initialSelectedAccountId = -1,
             onConfirmButtonClick = { onUiEvent(AccountUiEvent.OnTransferAccountSelected(it)) },
             onDismiss = { onUiEvent(AccountUiEvent.OnDismissDialog) }
@@ -195,35 +195,31 @@ private fun EditAccountScreen(
 
 @Composable
 private fun Screen(
-    onBackIconClick: () -> Unit,
-    onAccountSumChanged: (String) -> Unit,
-    onAccountNameChanged: (String) -> Unit,
     onUiEvent: (AccountUiEvent) -> Unit,
     uiState: AccountUiState,
+    accountBalanceFocusRequester: FocusRequester,
+    accountNameFocusRequester: FocusRequester,
     modifier: Modifier
 ) {
-    val accountSumFocusRequester = remember { FocusRequester() }
-    val accountNameFocusRequester = remember { FocusRequester() }
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = modifier
+        modifier = modifier.padding(vertical = 12.dp, horizontal = 16.dp)
     ) {
         SumTextField(
-            sum = uiState.accountSum,
-            onValueChange = { onAccountSumChanged(it) },
-            isError = uiState.accountSumError,
+            sum = uiState.accountBalance,
+            onValueChange = { onUiEvent(AccountUiEvent.OnAccountBalanceChanged(it)) },
+            isError = uiState.accountBalanceError,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Number,
                 imeAction = ImeAction.Next
             ),
-            modifier = Modifier.focusRequester(accountSumFocusRequester)
+            modifier = Modifier.focusRequester(accountBalanceFocusRequester)
         )
 
         FinanceTextField(
             value = uiState.accountName,
-            onValueChange = { onAccountNameChanged(it) },
+            onValueChange = { onUiEvent(AccountUiEvent.OnAccountNameChanged(it)) },
             label = "Название",
             isError = uiState.accountNameError,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -248,16 +244,4 @@ private fun Screen(
             onConfirm = { onUiEvent(AccountUiEvent.OnConfirmAccountNameCollisionDialog) }
         )
     }
-
-    if (uiState.requestAccountSumFocus) {
-        accountSumFocusRequester.requestFocus()
-        onUiEvent(AccountUiEvent.OnFocusRequested)
-    }
-
-    if (uiState.requestAccountNameFocus) {
-        accountNameFocusRequester.requestFocus()
-        onUiEvent(AccountUiEvent.OnFocusRequested)
-    }
-
-    if (uiState.closeScreen) onBackIconClick()
 }

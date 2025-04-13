@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -36,6 +38,7 @@ import com.example.finance.ui.common.MessageToUserDialog
 import com.example.finance.ui.common.PickerWithTitle
 import com.example.finance.ui.common.SaveButton
 import com.example.finance.ui.common.AccountPickerDialog
+import com.example.finance.ui.common.PastOrPresentSelectableDates
 import com.example.finance.ui.common.SumTextField
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -43,7 +46,7 @@ import java.util.Locale
 
 @Composable
 fun TransferScreen(
-    onBackIconClick: () -> Unit,
+    navigateBack: () -> Unit,
     viewModel: TransferViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -62,25 +65,32 @@ fun TransferScreen(
             interactionSource = remember { MutableInteractionSource() }
         )
 
+    val transferSumFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        viewModel.event.collect { event ->
+            when (event) {
+                TransferEvent.CloseScreen -> navigateBack()
+                TransferEvent.RequestTransferSumFocus -> transferSumFocusRequester.requestFocus()
+            }
+        }
+    }
+
     when (uiState.details) {
         is TransferDetails.CreateTransfer -> {
             CreateTransferScreen(
-                onBackIconClick = onBackIconClick,
-                onTransferSumChanged = viewModel::onTransferSumChanged,
-                onCommentChanged = viewModel::onCommentChanged,
                 onUiEvent = viewModel::onUiEvent,
                 uiState = uiState,
+                transferSumFocusRequester = transferSumFocusRequester,
                 modifier = modifier
             )
         }
 
         is TransferDetails.EditTransfer -> {
             EditTransferScreen(
-                onBackIconClick = onBackIconClick,
-                onTransferSumChanged = viewModel::onTransferSumChanged,
-                onCommentChanged = viewModel::onCommentChanged,
                 onUiEvent = viewModel::onUiEvent,
                 uiState = uiState,
+                transferSumFocusRequester = transferSumFocusRequester,
                 modifier = modifier
             )
         }
@@ -91,47 +101,37 @@ fun TransferScreen(
 
 @Composable
 private fun CreateTransferScreen(
-    onBackIconClick: () -> Unit,
-    onTransferSumChanged: (String) -> Unit,
-    onCommentChanged: (String) -> Unit,
     onUiEvent: (TransferUiEvent) -> Unit,
     uiState: TransferUiState,
+    transferSumFocusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
         topBar = {
             BackTopBar(
                 title = "Создание перевода",
-                onBackIconClick = onBackIconClick,
+                onBackIconClick = { onUiEvent(TransferUiEvent.OnBackIconClick) },
                 modifier = Modifier.fillMaxWidth()
             )
         },
         modifier = modifier
     ) { paddingValues ->
         Screen(
-            onBackIconClick = onBackIconClick,
-            onTransferSumChanged = onTransferSumChanged,
-            onCommentChanged = onCommentChanged,
             onUiEvent = onUiEvent,
             uiState = uiState,
+            transferSumFocusRequester = transferSumFocusRequester,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
-                    top = paddingValues.calculateTopPadding() + 12.dp,
-                    bottom = 24.dp
-                )
-                .padding(horizontal = 16.dp)
+                .padding(paddingValues)
         )
     }
 }
 
 @Composable
 private fun EditTransferScreen(
-    onBackIconClick: () -> Unit,
-    onTransferSumChanged: (String) -> Unit,
-    onCommentChanged: (String) -> Unit,
     onUiEvent: (TransferUiEvent) -> Unit,
     uiState: TransferUiState,
+    transferSumFocusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
     val details = uiState.details as TransferDetails.EditTransfer
@@ -140,7 +140,7 @@ private fun EditTransferScreen(
         topBar = {
             BackTopBar(
                 title = "Редактирование перевода",
-                onBackIconClick = onBackIconClick,
+                onBackIconClick = { onUiEvent(TransferUiEvent.OnBackIconClick) },
                 actions = {
                     IconButton(onClick = { onUiEvent(TransferUiEvent.OnDeleteIconClick) }) {
                         Icon(
@@ -155,18 +155,12 @@ private fun EditTransferScreen(
         modifier = modifier
     ) { paddingValues ->
         Screen(
-            onBackIconClick = onBackIconClick,
-            onTransferSumChanged = onTransferSumChanged,
-            onCommentChanged = onCommentChanged,
             onUiEvent = onUiEvent,
             uiState = uiState,
+            transferSumFocusRequester = transferSumFocusRequester,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
-                    top = paddingValues.calculateTopPadding() + 12.dp,
-                    bottom = 24.dp
-                )
-                .padding(horizontal = 16.dp)
+                .padding(paddingValues)
         )
     }
 
@@ -179,23 +173,20 @@ private fun EditTransferScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Screen(
-    onBackIconClick: () -> Unit,
-    onTransferSumChanged: (String) -> Unit,
-    onCommentChanged: (String) -> Unit,
     onUiEvent: (TransferUiEvent) -> Unit,
     uiState: TransferUiState,
+    transferSumFocusRequester: FocusRequester,
     modifier: Modifier
 ) {
-    val transferSumFocusRequester = remember { FocusRequester() }
-
     val date = Date(uiState.selectedDate)
     val formattedDate = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(date)
 
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = modifier
+        modifier = modifier.padding(vertical = 12.dp, horizontal = 16.dp)
     ) {
         Row(
             horizontalArrangement = Arrangement.Center,
@@ -204,7 +195,7 @@ private fun Screen(
         ) {
             SumTextField(
                 sum = uiState.transferSum,
-                onValueChange = onTransferSumChanged,
+                onValueChange = { onUiEvent(TransferUiEvent.OnTransferSumChanged(it)) },
                 isError = uiState.transferSumError,
                 modifier = Modifier.focusRequester(transferSumFocusRequester)
             )
@@ -232,7 +223,7 @@ private fun Screen(
 
         FinanceTextField(
             value = uiState.comment,
-            onValueChange = onCommentChanged,
+            onValueChange = { onUiEvent(TransferUiEvent.OnCommentChanged(it)) },
             label = "Комментарий",
             placeholder = "Напишите что-нибудь",
             maxLines = 5,
@@ -252,7 +243,7 @@ private fun Screen(
         AccountPickerDialog(
             accounts = uiState.accounts,
             initialSelectedAccountId = uiState.selectedFromAccount?.id ?: -1,
-            onConfirmButtonClick = { onUiEvent(TransferUiEvent.OnNewFromAccountSelected(it)) },
+            onConfirmButtonClick = { onUiEvent(TransferUiEvent.OnFromAccountSelected(it)) },
             onDismiss = { onUiEvent(TransferUiEvent.OnDismissDialog) }
         )
     }
@@ -261,16 +252,17 @@ private fun Screen(
         AccountPickerDialog(
             accounts = uiState.accounts,
             initialSelectedAccountId = uiState.selectedToAccount?.id ?: -1,
-            onConfirmButtonClick = { onUiEvent(TransferUiEvent.OnNewToAccountSelected(it)) },
+            onConfirmButtonClick = { onUiEvent(TransferUiEvent.OnToAccountSelected(it)) },
             onDismiss = { onUiEvent(TransferUiEvent.OnDismissDialog) }
         )
     }
 
     if (uiState.showDatePickerDialog) {
         DatePickerModalDialog(
-            onConfirmButtonClick = { onUiEvent(TransferUiEvent.OnNewDateSelected(it)) },
+            onConfirmButtonClick = { onUiEvent(TransferUiEvent.OnDateSelected(it)) },
             onDismiss = { onUiEvent(TransferUiEvent.OnDismissDialog) },
-            initialSelectedDate = uiState.selectedDate
+            initialSelectedDate = uiState.selectedDate,
+            selectableDates = PastOrPresentSelectableDates
         )
     }
 
@@ -280,12 +272,5 @@ private fun Screen(
             message = "Невозможно выполнить перевод на тот же счет. Пожалуйста, выберите другой счет списания или получения",
             onConfirm = { onUiEvent(TransferUiEvent.OnDismissDialog) }
         )
-    }
-
-    if (uiState.closeScreen) onBackIconClick()
-
-    if (uiState.requestTransferSumFocus) {
-        transferSumFocusRequester.requestFocus()
-        onUiEvent(TransferUiEvent.OnFocusRequested)
     }
 }

@@ -7,9 +7,11 @@ import kotlinx.coroutines.flow.Flow
 
 interface TransferRepository : BaseRepository<Transfer> {
 
-    fun getTransfersByAccountIdAndPeriod(
+    fun getTransfersByAccountAndTypeAndPeriod(
         accountId: Int,
         operationType: OperationType,
         period: Period
     ): Flow<List<Transfer>>
+
+    fun getTransfersByPeriod(period: Period): Flow<List<Transfer>>
 }

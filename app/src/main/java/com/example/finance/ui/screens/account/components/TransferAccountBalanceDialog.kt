@@ -10,7 +10,7 @@ import com.example.finance.ui.theme.FinanceTheme
 
 @Composable
 fun TransferAccountBalanceDialog(
-    accountSum: Long,
+    accountBalance: Long,
     onConfirmButtonClick: () -> Unit,
     onDismissButtonClick: () -> Unit,
     onDismissRequest: () -> Unit,
@@ -18,7 +18,7 @@ fun TransferAccountBalanceDialog(
 ) {
     AlertDialog(
         title = { Text(text = "Перенос остатка на другой счет") },
-        text = { Text(text = "На счету осталось $accountSum ₽. Перевести их на другой счет?") },
+        text = { Text(text = "На счету осталось $accountBalance ₽. Перевести их на другой счет?") },
         confirmButton = {
             TextButton(onClick = onConfirmButtonClick) {
                 Text(text = "Да")
@@ -39,7 +39,7 @@ fun TransferAccountBalanceDialog(
 private fun TransferAccountBalanceDialogPreview() {
     FinanceTheme {
         TransferAccountBalanceDialog(
-            accountSum = 1000,
+            accountBalance = 1000,
             onConfirmButtonClick = {},
             onDismissButtonClick = {},
             onDismissRequest = {}

@@ -8,7 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
-import com.example.finance.ui.navigation.FinanceNavGraph
+import com.example.finance.ui.navigation.FinanceApp
 import com.example.finance.ui.theme.FinanceTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FinanceTheme {
-                FinanceNavGraph()
+                FinanceApp()
             }
         }
     }

@@ -1,52 +1,45 @@
 package com.example.finance.data.repository
 
 import com.example.finance.data.local.dao.CategoryDao
-import com.example.finance.data.local.entities.mappers.CategoryDomainToDbMapper
+import com.example.finance.data.local.entities.mappers.toDb
 import com.example.finance.domain.entities.Category
 import com.example.finance.domain.entities.CategoryWithSubcategories
 import com.example.finance.domain.entities.OperationType
-import com.example.finance.domain.entities.mappers.CategoryDbToDomainMapper
-import com.example.finance.domain.entities.mappers.CategoryWithSubcategoriesDbToDomainMapper
+import com.example.finance.domain.entities.mappers.toDomain
 import com.example.finance.domain.repository.CategoryRepository
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
 class CategoryRepositoryImpl(
     private val categoryDao: CategoryDao,
-    private val categoryDbToDomainMapper: CategoryDbToDomainMapper,
-    private val categoryDomainToDbMapper: CategoryDomainToDbMapper,
-    private val categoryWithSubcategoriesDbToDomainMapper: CategoryWithSubcategoriesDbToDomainMapper
+    private val dispatcher: CoroutineDispatcher
 ) : CategoryRepository {
 
     override fun getCategoriesByType(type: OperationType): Flow<List<Category>> =
-        categoryDao.getCategoriesByType(type).map { categories ->
-            categories.map(categoryDbToDomainMapper)
-        }
+        categoryDao.getCategoriesByType(type).map { it.toDomain() }.flowOn(dispatcher)
 
-    override suspend fun getCategoryWithSubcategoriesById(
+    override fun getCategoryWithSubcategoriesById(
         categoryId: Int
-    ): CategoryWithSubcategories {
-        val categoryWithSubcategoriesDb = categoryDao.getCategoryWithSubcategoriesById(categoryId)
-        return categoryWithSubcategoriesDbToDomainMapper(categoryWithSubcategoriesDb)
-    }
+    ): Flow<CategoryWithSubcategories?> = categoryDao.getCategoryWithSubcategoriesById(categoryId)
+        .map { it?.toDomain() }
+        .flowOn(dispatcher)
 
-    override fun getAll(): Flow<List<Category>> = categoryDao.getAll().map { categories ->
-        categories.map(categoryDbToDomainMapper)
-    }
+    override fun getAll(): Flow<List<Category>> = categoryDao.getAll()
+        .map { it.toDomain() }
+        .flowOn(dispatcher)
 
-    override suspend fun getObjectById(objectId: Int): Category {
-        val categoryDb = categoryDao.getCategoryById(objectId)
-        return categoryDbToDomainMapper(categoryDb)
-    }
+    override suspend fun getObjectById(objectId: Int): Category =
+        withContext(dispatcher) { categoryDao.getCategoryById(objectId).toDomain() }
 
-    override suspend fun insert(obj: Category) = categoryDao.insert(categoryDomainToDbMapper(obj))
+    override suspend fun insert(obj: Category) =
+        withContext(dispatcher) { categoryDao.insert(obj.toDb()) }
 
-    override suspend fun insertAll(objects: List<Category>) =
-        categoryDao.insertAll(objects.map(categoryDomainToDbMapper))
+    override suspend fun update(obj: Category) =
+        withContext(dispatcher) { categoryDao.update(obj.toDb()) }
 
-    override suspend fun update(obj: Category) = categoryDao.update(categoryDomainToDbMapper(obj))
-
-    override suspend fun delete(obj: Category) = categoryDao.delete(categoryDomainToDbMapper(obj))
-
-    override suspend fun deleteObjectById(objectId: Int) = categoryDao.deleteCategoryById(objectId)
+    override suspend fun delete(obj: Category) =
+        withContext(dispatcher) { categoryDao.delete(obj.toDb()) }
 }

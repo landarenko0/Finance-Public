@@ -7,13 +7,14 @@ import androidx.navigation.toRoute
 import com.example.finance.domain.entities.Category
 import com.example.finance.domain.entities.OperationType
 import com.example.finance.domain.usecases.CategoryInteractor
-import com.example.finance.ui.navigation.AppScreens
+import com.example.finance.ui.navigation.CategoryScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -27,42 +28,35 @@ class CategoryViewModel @Inject constructor(
     private val _uiState: MutableStateFlow<CategoryUiState> = MutableStateFlow(CategoryUiState())
     val uiState: StateFlow<CategoryUiState> = _uiState.asStateFlow()
 
-    val categoryId = savedStateHandle.toRoute<AppScreens.CategoryScreen>().categoryId
+    private val _event = Channel<CategoryEvent>()
+    val event = _event.receiveAsFlow()
+
+    val categoryId = savedStateHandle.toRoute<CategoryScreen>().categoryId
 
     init {
         viewModelScope.launch {
             if (categoryId != null) {
-                _uiState.value = _uiState.value.copy(details = CategoryDetails.EditCategory())
-
                 categoryInteractor.getCategoryById(categoryId).also { category ->
                     _uiState.update {
                         it.copy(
                             selectedOperationType = category.type,
                             categoryName = category.name,
-                            details = (it.details as CategoryDetails.EditCategory).copy(
+                            details = CategoryDetails.EditCategory(
                                 selectedCategoryName = category.name
                             )
                         )
                     }
                 }
-
-                categoryInteractor
-                    .getAllCategories()
-                    .map { categories -> categories.filter { it.id != categoryId } }
-                    .first()
-                    .also { categories -> _uiState.update { it.copy(categories = categories) } }
             } else {
-                val initialSelectedOperationType = savedStateHandle.toRoute<AppScreens.CategoryScreen>().initialSelectedOperationType
+                val initialSelectedOperationType =
+                    savedStateHandle.toRoute<CategoryScreen>().initialSelectedOperationType
 
-                _uiState.value = _uiState.value.copy(
-                    selectedOperationType = initialSelectedOperationType,
-                    details = CategoryDetails.CreateCategory
-                )
-
-                categoryInteractor
-                    .getAllCategories()
-                    .first()
-                    .also { categories -> _uiState.update { it.copy(categories = categories) } }
+                _uiState.update {
+                    it.copy(
+                        selectedOperationType = initialSelectedOperationType,
+                        details = CategoryDetails.CreateCategory
+                    )
+                }
             }
         }
     }
@@ -70,12 +64,15 @@ class CategoryViewModel @Inject constructor(
     fun onUiEvent(uiEvent: CategoryUiEvent) {
         when (uiEvent) {
             CategoryUiEvent.OnConfirmCategoryNameCollisionDialog -> {
-                _uiState.update {
-                    it.copy(
-                        showCategoryNameCollisionDialog = false,
-                        categoryNameError = true,
-                        requestCategoryNameFocus = true
-                    )
+                viewModelScope.launch {
+                    _uiState.update {
+                        it.copy(
+                            showCategoryNameCollisionDialog = false,
+                            categoryNameError = true
+                        )
+                    }
+
+                    _event.send(CategoryEvent.RequestCategoryNameFocus)
                 }
             }
 
@@ -101,21 +98,36 @@ class CategoryViewModel @Inject constructor(
                 }
             }
 
-            CategoryUiEvent.OnFocusRequested -> {
-                _uiState.update { it.copy(requestCategoryNameFocus = false) }
+            CategoryUiEvent.OnSaveButtonCLick -> saveCategory()
+
+            is CategoryUiEvent.OnCategoryNameChanged -> {
+                if (uiEvent.categoryName.length <= 50) {
+                    _uiState.update {
+                        it.copy(
+                            categoryName = uiEvent.categoryName,
+                            categoryNameError = false
+                        )
+                    }
+                }
             }
 
-            CategoryUiEvent.OnSaveButtonCLick -> saveCategory()
+            is CategoryUiEvent.OnOperationTypeChanged -> {
+                _uiState.update { it.copy(selectedOperationType = uiEvent.operationType) }
+            }
+
+            CategoryUiEvent.OnBackIconClick -> {
+                viewModelScope.launch { _event.send(CategoryEvent.CloseScreen) }
+            }
         }
     }
 
     private fun saveCategory() {
-        if (!validateCategory()) return
-
-        val categoryName = _uiState.value.categoryName.trim()
-        val operationType = _uiState.value.selectedOperationType
-
         viewModelScope.launch {
+            val categoryName = _uiState.value.categoryName.trim()
+            val operationType = _uiState.value.selectedOperationType
+
+            if (!validateInput(categoryName, operationType)) return@launch
+
             when (_uiState.value.details) {
                 CategoryDetails.CreateCategory -> {
                     categoryInteractor.addCategory(
@@ -142,42 +154,33 @@ class CategoryViewModel @Inject constructor(
                 }
             }
 
-            _uiState.update { it.copy(closeScreen = true) }
+            _event.send(CategoryEvent.CloseScreen)
         }
     }
 
-    private fun validateCategory(): Boolean {
-        val categoryName = _uiState.value.categoryName.trim()
-        val operationType = _uiState.value.selectedOperationType
-
+    private suspend fun validateInput(
+        categoryName: String,
+        operationType: OperationType
+    ): Boolean = viewModelScope.async {
         when {
             categoryName.isEmpty() || categoryName.isBlank() -> {
-                _uiState.update {
-                    it.copy(
-                        categoryNameError = true,
-                        requestCategoryNameFocus = true
-                    )
-                }
+                _uiState.update { it.copy(categoryNameError = true) }
+                _event.send(CategoryEvent.RequestCategoryNameFocus)
             }
 
-            checkCategoryNameCollision(categoryName, operationType) -> {
+            _uiState.value.details is CategoryDetails.CreateCategory && categoryInteractor.checkCategoryNameCollision(categoryName, operationType) -> {
                 _uiState.update { it.copy(showCategoryNameCollisionDialog = true) }
             }
 
-            else -> return true
+            _uiState.value.details is CategoryDetails.EditCategory && categoryInteractor.checkCategoryNameCollisionExcept(categoryName, operationType, categoryId!!) -> {
+                _uiState.update { it.copy(showCategoryNameCollisionDialog = true) }
+            }
+
+            else -> return@async true
         }
 
-        return false
-    }
-
-    private fun checkCategoryNameCollision(
-        categoryName: String,
-        operationType: OperationType
-    ): Boolean {
-        return _uiState.value.categories
-            .filter { it.type == operationType }
-            .find { it.name == categoryName } != null
-    }
+        return@async false
+    }.await()
 
     private fun deleteCategory() {
         viewModelScope.launch {
@@ -190,26 +193,12 @@ class CategoryViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     details = (it.details as CategoryDetails.EditCategory).copy(
-                        showDeleteCategoryDialog = false,
-                        categoryDeleted = true
+                        showDeleteCategoryDialog = false
                     )
                 )
             }
-        }
-    }
 
-    fun updateCategoryName(categoryName: String) {
-        if (categoryName.length <= 50) {
-            _uiState.update {
-                it.copy(
-                    categoryName = categoryName,
-                    categoryNameError = false
-                )
-            }
+            _event.send(CategoryEvent.NavigateToCategoryListScreen)
         }
-    }
-
-    fun updateOperationType(operationType: OperationType) {
-        _uiState.update { it.copy(selectedOperationType = operationType) }
     }
 }

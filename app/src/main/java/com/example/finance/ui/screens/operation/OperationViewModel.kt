@@ -5,23 +5,26 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
-import com.example.finance.domain.entities.Account
 import com.example.finance.domain.entities.Operation
 import com.example.finance.domain.entities.OperationType
 import com.example.finance.domain.usecases.AccountInteractor
 import com.example.finance.domain.usecases.CategoryInteractor
 import com.example.finance.domain.usecases.OperationInteractor
 import com.example.finance.domain.usecases.SubcategoryInteractor
-import com.example.finance.ui.navigation.AppScreens
+import com.example.finance.ui.navigation.OperationScreen
+import com.example.finance.utils.toLocalDate
+import com.example.finance.utils.toMillis
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.ZoneId
 import javax.inject.Inject
 
 @HiltViewModel
@@ -36,7 +39,10 @@ class OperationViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(OperationUiState())
     val uiState: StateFlow<OperationUiState> = _uiState.asStateFlow()
 
-    private val operationScreenStateHandle = savedStateHandle.toRoute<AppScreens.OperationScreen>()
+    private val _event = Channel<OperationEvent>()
+    val event = _event.receiveAsFlow()
+
+    private val operationScreenStateHandle = savedStateHandle.toRoute<OperationScreen>()
 
     private val operationId = operationScreenStateHandle.operationId
     private val accountId = operationScreenStateHandle.accountId
@@ -45,8 +51,6 @@ class OperationViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             if (operationId != null) {
-                _uiState.value = _uiState.value.copy(details = OperationDetails.EditOperation())
-
                 operationInteractor.getOperationById(operationId).also { operation ->
                     _uiState.update {
                         it.copy(
@@ -55,39 +59,53 @@ class OperationViewModel @Inject constructor(
                             selectedAccount = operation.account,
                             selectedCategory = operation.category,
                             selectedSubcategory = operation.subcategory,
-                            selectedDate = operation.date.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                            subcategories = subcategoryInteractor.getCategorySubcategories(operation.category.id),
+                            selectedDate = operation.date.toMillis(),
                             comment = operation.comment,
-                            showSubcategoryPicker = true
+                            showSubcategoryPicker = true,
+                            details = OperationDetails.EditOperation()
                         )
                     }
                 }
             } else {
-                _uiState.value = _uiState.value.copy(details = OperationDetails.CreateOperation)
+                _uiState.update { it.copy(details = OperationDetails.CreateOperation) }
 
                 accountId?.let {
                     if (accountId != 0) {
-                        _uiState.update {
-                            it.copy(selectedAccount = accountInteractor.getAccountById(accountId))
+                        launch {
+                            _uiState.update {
+                                it.copy(
+                                    selectedAccount = accountInteractor.getAccountById(accountId)
+                                )
+                            }
                         }
                     }
                 }
 
                 categoryId?.let {
-                    _uiState.update {
-                        it.copy(selectedCategory = categoryInteractor.getCategoryById(categoryId))
+                    launch {
+                        _uiState.update {
+                            it.copy(
+                                selectedCategory = categoryInteractor.getCategoryById(categoryId),
+                                showSubcategoryPicker = true
+                            )
+                        }
                     }
                 }
             }
 
-            val categories = categoryInteractor.getAllCategories().first().reversed()
+            launch {
+                val accounts = async { accountInteractor.getAllAccounts().first() }
+                val incomeCategories = async { categoryInteractor.getCategoriesByType(OperationType.INCOME).first() }
+                val expensesCategories = async { categoryInteractor.getCategoriesByType(OperationType.EXPENSES).first() }
 
-            _uiState.update { state ->
-                state.copy(
-                    accounts = accountInteractor.getAllAccounts().first().reversed(),
-                    incomeCategories = categories.filter { it.type == OperationType.INCOME },
-                    expensesCategories = categories.filter { it.type == OperationType.EXPENSES },
-                    subcategories = subcategoryInteractor.getAllSubcategories().first()
-                )
+                _uiState.update {
+                    it.copy(
+                        accounts = accounts.await(),
+                        incomeCategories = incomeCategories.await(),
+                        expensesCategories = expensesCategories.await()
+                    )
+                }
             }
         }
     }
@@ -132,51 +150,57 @@ class OperationViewModel @Inject constructor(
             OperationUiEvent.OnDeleteOperationDialogDismiss -> {
                 _uiState.update {
                     it.copy(
-                        details = (it.details as OperationDetails.EditOperation).copy(showDeleteOperationDialog = false)
+                        details = (it.details as OperationDetails.EditOperation).copy(
+                            showDeleteOperationDialog = false
+                        )
                     )
                 }
             }
 
-            OperationUiEvent.OnFocusRequested -> {
-                _uiState.update { it.copy(requestAccountSumFocus = false) }
-            }
+            is OperationUiEvent.OnNewAccountSelected -> updateSelectedAccount(uiEvent.accountId)
 
-            is OperationUiEvent.OnNewAccountSelected -> updateSelectedAccount(uiEvent.newAccountId)
-
-            is OperationUiEvent.OnNewCategorySelected -> updateSelectedCategory(uiEvent.newCategoryId)
+            is OperationUiEvent.OnNewCategorySelected -> updateSelectedCategory(uiEvent.categoryId)
 
             is OperationUiEvent.OnNewDateSelected -> {
                 _uiState.update {
                     it.copy(
-                        selectedDate = uiEvent.newDate,
+                        selectedDate = uiEvent.date,
                         showDatePickerDialog = false
                     )
                 }
             }
 
-            is OperationUiEvent.OnNewSubcategorySelected -> updateSelectedSubcategory(uiEvent.newSubcategoryId)
+            is OperationUiEvent.OnNewSubcategorySelected -> {
+                updateSelectedSubcategory(uiEvent.subcategoryId)
+            }
 
-            OperationUiEvent.OnSaveButtonClick -> saveCategory()
+            OperationUiEvent.OnSaveButtonClick -> saveOperation()
 
             OperationUiEvent.OnSubcategoryPickerClick -> {
                 _uiState.update { it.copy(showSubcategoryPickerDialog = true) }
             }
-        }
-    }
 
-    fun onOperationSumChanged(operationSum: String) {
-        if (operationSum.isDigitsOnly() && operationSum.length <= 10) {
-            _uiState.update {
-                it.copy(
-                    operationSum = operationSum,
-                    operationSumError = false
-                )
+            is OperationUiEvent.OnCommentChanged -> {
+                if (uiEvent.comment.length <= 1000) {
+                    _uiState.update { it.copy(comment = uiEvent.comment) }
+                }
+            }
+
+            is OperationUiEvent.OnOperationSumChanged -> {
+                if (uiEvent.operationSum.isDigitsOnly() && uiEvent.operationSum.length <= 10) {
+                    _uiState.update {
+                        it.copy(
+                            operationSum = uiEvent.operationSum,
+                            operationSumError = false
+                        )
+                    }
+                }
+            }
+
+            OperationUiEvent.OnBackIconClick -> {
+                viewModelScope.launch { _event.send(OperationEvent.CloseScreen) }
             }
         }
-    }
-
-    fun onCommentChanged(comment: String) {
-        if (comment.length <= 1000) _uiState.update { it.copy(comment = comment) }
     }
 
     private fun updateSelectedAccount(newAccountId: Int) {
@@ -197,7 +221,10 @@ class OperationViewModel @Inject constructor(
     private fun updateSelectedCategory(newCategoryId: Int) {
         if (_uiState.value.selectedCategory?.id != newCategoryId) {
             viewModelScope.launch {
-                val newCategoryWithSubcategories = categoryInteractor.getCategoryWithSubcategoriesById(newCategoryId)
+                val newCategoryWithSubcategories = categoryInteractor
+                    .getCategoryWithSubcategoriesById(newCategoryId)
+                    .filterNotNull()
+                    .first()
 
                 _uiState.update {
                     it.copy(
@@ -233,30 +260,41 @@ class OperationViewModel @Inject constructor(
     private fun deleteOperation() {
         viewModelScope.launch {
             operationId?.let {
-                operationInteractor.deleteOperation(
-                    operationInteractor.getOperationById(operationId)
-                )
+                operationInteractor.getOperationById(operationId).also { oldOperation ->
+                    when (oldOperation.category.type) {
+                        OperationType.EXPENSES -> {
+                            accountInteractor.addMoneyToAccount(oldOperation.account.id, oldOperation.sum)
+                        }
+
+                        else -> {
+                            accountInteractor.addMoneyToAccount(oldOperation.account.id, -oldOperation.sum)
+                        }
+                    }
+
+                    operationInteractor.deleteOperation(oldOperation)
+                }
 
                 _uiState.update {
                     it.copy(
-                        closeScreen = true,
                         details = (it.details as OperationDetails.EditOperation).copy(
                             showDeleteOperationDialog = false
                         )
                     )
                 }
+
+                _event.send(OperationEvent.CloseScreen)
             }
         }
     }
 
-    private fun saveCategory() {
-        if (!validateOperation()) return
+    private fun saveOperation() {
+        if (!validateInput()) return
 
         val operationSum = _uiState.value.operationSum.toLong()
         val selectedAccount = _uiState.value.selectedAccount!!
         val selectedCategory = _uiState.value.selectedCategory!!
         val selectedSubcategory = _uiState.value.selectedSubcategory
-        val selectedDate = Instant.ofEpochMilli(_uiState.value.selectedDate).atZone(ZoneId.systemDefault()).toLocalDate()
+        val selectedDate = _uiState.value.selectedDate.toLocalDate()
         val comment = _uiState.value.comment.trim()
 
         viewModelScope.launch {
@@ -278,12 +316,15 @@ class OperationViewModel @Inject constructor(
                 is OperationDetails.EditOperation -> {
                     operationId?.let {
                         val oldOperation = operationInteractor.getOperationById(operationId)
-                        val account = accountInteractor.getAccountById(oldOperation.account.id)
 
                         when (oldOperation.category.type) {
-                            OperationType.EXPENSES -> addMoneyToAccount(account, oldOperation.sum)
+                            OperationType.EXPENSES -> {
+                                accountInteractor.addMoneyToAccount(oldOperation.account.id, oldOperation.sum)
+                            }
 
-                            else -> addMoneyToAccount(account, -oldOperation.sum)
+                            else -> {
+                                accountInteractor.addMoneyToAccount(oldOperation.account.id, -oldOperation.sum)
+                            }
                         }
 
                         operationInteractor.updateOperation(
@@ -303,28 +344,28 @@ class OperationViewModel @Inject constructor(
             }
 
             when (selectedCategory.type) {
-                OperationType.EXPENSES -> addMoneyToAccount(selectedAccount, -operationSum)
+                OperationType.EXPENSES -> {
+                    accountInteractor.addMoneyToAccount(selectedAccount.id, -operationSum)
+                }
 
-                else -> addMoneyToAccount(selectedAccount, operationSum)
+                else -> {
+                    accountInteractor.addMoneyToAccount(selectedAccount.id, operationSum)
+                }
             }
 
-            _uiState.update { it.copy(closeScreen = true) }
+            _event.send(OperationEvent.CloseScreen)
         }
     }
 
-    private fun validateOperation(): Boolean {
+    private fun validateInput(): Boolean {
         val operationSum = _uiState.value.operationSum
         val account = _uiState.value.selectedAccount
         val category = _uiState.value.selectedCategory
 
         when {
-            operationSum.toLongOrNull() == null || operationSum.isEmpty() || operationSum.isBlank() || operationSum.toLongOrNull() == 0L -> {
-                _uiState.update {
-                    it.copy(
-                        operationSumError = true,
-                        requestAccountSumFocus = true
-                    )
-                }
+            operationSum.isEmpty() || operationSum.isBlank() || operationSum.toLongOrNull() == null || operationSum.toLongOrNull() == 0L -> {
+                _uiState.update { it.copy(operationSumError = true) }
+                viewModelScope.launch { _event.send(OperationEvent.RequestOperationSumFocus) }
             }
 
             account == null -> _uiState.update { it.copy(showAccountPickerDialog = true) }
@@ -335,9 +376,5 @@ class OperationViewModel @Inject constructor(
         }
 
         return false
-    }
-
-    private suspend fun addMoneyToAccount(account: Account, sum: Long) {
-        accountInteractor.updateAccount(account.copy(sum = account.sum + sum))
     }
 }

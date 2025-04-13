@@ -68,11 +68,7 @@ abstract class FinanceDatabase : RoomDatabase() {
 
                 val prepopulatedCategories = listOf(
                     CategoryDb(
-                        name = "Продукты",
-                        type = OperationType.EXPENSES
-                    ),
-                    CategoryDb(
-                        name = "Развлечения",
+                        name = "Другое",
                         type = OperationType.EXPENSES
                     ),
                     CategoryDb(
@@ -80,15 +76,19 @@ abstract class FinanceDatabase : RoomDatabase() {
                         type = OperationType.EXPENSES
                     ),
                     CategoryDb(
-                        name = "Другое",
+                        name = "Развлечения",
                         type = OperationType.EXPENSES
                     ),
                     CategoryDb(
-                        name = "Зарплата",
-                        type = OperationType.INCOME
+                        name = "Продукты",
+                        type = OperationType.EXPENSES
                     ),
                     CategoryDb(
                         name = "Другое",
+                        type = OperationType.INCOME
+                    ),
+                    CategoryDb(
+                        name = "Зарплата",
                         type = OperationType.INCOME
                     )
                 )

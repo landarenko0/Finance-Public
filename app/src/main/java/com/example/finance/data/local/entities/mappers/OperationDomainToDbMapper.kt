@@ -3,15 +3,14 @@ package com.example.finance.data.local.entities.mappers
 import com.example.finance.data.local.entities.OperationDb
 import com.example.finance.domain.entities.Operation
 
-class OperationDomainToDbMapper : (Operation) -> OperationDb {
+fun Operation.toDb(): OperationDb = OperationDb(
+    id = this.id,
+    categoryId = this.category.id,
+    subcategoryId = this.subcategory?.id,
+    accountId = this.account.id,
+    sum = this.sum,
+    date = this.date,
+    comment = this.comment
+)
 
-    override fun invoke(operation: Operation): OperationDb = OperationDb(
-        id = operation.id,
-        categoryId = operation.category.id,
-        subcategoryId = operation.subcategory?.id,
-        accountId = operation.account.id,
-        sum = operation.sum,
-        date = operation.date,
-        comment = operation.comment
-    )
-}
+fun List<Operation>.toDb(): List<OperationDb> = this.map { it.toDb() }

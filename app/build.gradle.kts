@@ -71,9 +71,10 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.serialization)
     implementation(libs.bundles.dataStore)
-    implementation(libs.bundles.charty)
+    implementation(libs.bundles.workManager)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     debugImplementation(libs.bundles.compose.debug)
     ksp(libs.dagger.hilt.android.compiler)
+    ksp(libs.hilt.androidx.compiler)
     ksp(libs.androidx.room.compiler)
 }

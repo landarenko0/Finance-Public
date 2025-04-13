@@ -1,6 +1,7 @@
 package com.example.finance.ui.screens.categorywithsubcategories
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,8 +14,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -29,26 +30,24 @@ import com.example.finance.ui.screens.categorywithsubcategories.components.Subca
 
 @Composable
 fun CategoryWithSubcategoriesScreen(
-    onBackIconClick: () -> Unit,
-    onEditButtonClick: (Int) -> Unit,
+    navigateBack: () -> Unit,
+    navigateToEditCategoryScreen: (Int) -> Unit,
     viewModel: CategoryWithSubcategoriesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val operationType = if (uiState.category.type == OperationType.EXPENSES) "Расход" else "Доход"
 
-    LaunchedEffect(Unit) { viewModel.onUiEvent(CategoryWithSubcategoriesUiEvent.OnComposition) }
-
     Scaffold(
         topBar = {
             SubcategoriesScreenTopBar(
                 title = "${uiState.category.name} - $operationType",
-                onBackIconClick = onBackIconClick,
+                onBackIconClick = navigateBack,
                 onCloseIconClick = { viewModel.onUiEvent(CategoryWithSubcategoriesUiEvent.OnCloseIconClick) },
                 deleteSubcategoriesEnabled = uiState.deleteSubcategoriesEnabled,
                 actions = {
                     IconButton(
-                        onClick = { onEditButtonClick(uiState.category.id) },
+                        onClick = { navigateToEditCategoryScreen(uiState.category.id) },
                         enabled = !uiState.deleteSubcategoriesEnabled
                     ) {
                         Icon(
@@ -83,19 +82,34 @@ fun CategoryWithSubcategoriesScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = paddingValues.calculateTopPadding() + 12.dp)
-                .padding(horizontal = 16.dp)
+                .padding(paddingValues)
+                .padding(vertical = 12.dp, horizontal = 16.dp)
         ) {
-            Text(text = if (uiState.subcategories.isNotEmpty()) "Подкатегории" else "Нет подкатегорий")
+            if (uiState.subcategories.isNotEmpty()) {
+                Text(text = "Подкатегории")
 
-            SubcategoriesList(
-                subcategories = uiState.subcategories,
-                onSubcategoryClick = { viewModel.onUiEvent(CategoryWithSubcategoriesUiEvent.OnSubcategoryClick(it)) },
-                onLongSubcategoryClick = { viewModel.onUiEvent(CategoryWithSubcategoriesUiEvent.OnLongSubcategoryClick(it)) },
-                deleteSubcategoriesEnabled = uiState.deleteSubcategoriesEnabled,
-                selectedSubcategoriesIds = uiState.selectedSubcategories,
-                modifier = Modifier.fillMaxSize()
-            )
+                SubcategoriesList(
+                    subcategories = uiState.subcategories,
+                    onSubcategoryClick = {
+                        viewModel.onUiEvent(CategoryWithSubcategoriesUiEvent.OnSubcategoryClick(it))
+                    },
+                    onLongSubcategoryClick = {
+                        viewModel.onUiEvent(
+                            CategoryWithSubcategoriesUiEvent.OnLongSubcategoryClick(it)
+                        )
+                    },
+                    deleteSubcategoriesEnabled = uiState.deleteSubcategoriesEnabled,
+                    selectedSubcategoriesIds = uiState.selectedSubcategories,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Text(text = "Нет подкатегорий")
+                }
+            }
         }
     }
 
@@ -117,7 +131,7 @@ fun CategoryWithSubcategoriesScreen(
 
     if (uiState.showDeleteSubcategoriesDialog) {
         ConfirmationDialog(
-            text = "Вы действительно хотите удалить выбранные подкатегории? Связанные с ними операции НЕ будут удалены",
+            text = "Вы действительно хотите удалить выбранные подкатегории? Связанные с ними операции не будут удалены",
             onConfirm = { viewModel.onUiEvent(CategoryWithSubcategoriesUiEvent.OnConfirmDeleteSubcategoriesDialog) },
             onDismiss = { viewModel.onUiEvent(CategoryWithSubcategoriesUiEvent.OnDialogDismiss) }
         )

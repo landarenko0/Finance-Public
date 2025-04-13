@@ -7,18 +7,21 @@ import kotlinx.coroutines.flow.Flow
 
 interface OperationRepository : BaseRepository<Operation> {
 
-    fun getGroupedCategoriesByAccountId(
+    fun getGroupedCategoriesByAccountAndPeriod(
         accountId: Int,
         period: Period
     ): Flow<List<GroupedCategories>>
 
-    fun getAllGroupedCategories(period: Period): Flow<List<GroupedCategories>>
+    fun getAllGroupedCategoriesByPeriod(period: Period): Flow<List<GroupedCategories>>
 
-    fun getOperationsByCategoryId(
+    fun getOperationsByCategoryAndAccountAndPeriod(
         categoryId: Int,
         accountId: Int,
         period: Period
     ): Flow<List<Operation>>
 
-    suspend fun deleteOperationsByAccountId(accountId: Int)
+    fun getOperationsByCategoryAndPeriod(
+        categoryId: Int,
+        period: Period
+    ): Flow<List<Operation>>
 }

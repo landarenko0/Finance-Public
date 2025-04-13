@@ -13,7 +13,7 @@ import java.time.LocalDate
 interface TransferDao : BaseDao<TransferDb> {
 
     @Transaction
-    @Query("SELECT * FROM transferdb ORDER BY id DESC")
+    @Query("SELECT * FROM transferdb")
     fun getAll(): Flow<List<TransferDbExtended>>
 
     @Transaction
@@ -29,11 +29,15 @@ interface TransferDao : BaseDao<TransferDb> {
         endDate: LocalDate
     ): Flow<List<TransferDbExtended>>
 
-    @Query("DELETE FROM transferdb WHERE id = :transferId")
-    suspend fun deleteTransferById(transferId: Int)
+    @Transaction
+    @Query(GET_TRANSFERS_BY_PERIOD_QUERY)
+    fun getTransferByPeriod(
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): Flow<List<TransferDbExtended>>
 
     companion object {
-        private const val GET_TRANSFERS_BY_ACCOUNT_ID_AND_PERIOD_QUERY: String = """
+        private const val GET_TRANSFERS_BY_ACCOUNT_ID_AND_PERIOD_QUERY = """
             SELECT
                 id,
                 fromAccountId,
@@ -65,6 +69,12 @@ interface TransferDao : BaseDao<TransferDb> {
             WHERE
                 transferType = :operationType
                 AND date BETWEEN :startDate AND :endDate
+        """
+
+        private const val GET_TRANSFERS_BY_PERIOD_QUERY: String = """
+            SELECT *
+            FROM transferdb
+            WHERE date between :startDate AND :endDate
         """
     }
 }

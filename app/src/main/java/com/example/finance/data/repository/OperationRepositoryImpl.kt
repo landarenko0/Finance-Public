@@ -1,73 +1,71 @@
 package com.example.finance.data.repository
 
 import com.example.finance.data.local.dao.OperationDao
-import com.example.finance.data.local.entities.mappers.OperationDomainToDbMapper
+import com.example.finance.data.local.entities.mappers.toDb
 import com.example.finance.domain.entities.GroupedCategories
 import com.example.finance.domain.entities.Operation
 import com.example.finance.domain.entities.Period
-import com.example.finance.domain.entities.mappers.OperationDbExtendedToDomainMapper
+import com.example.finance.domain.entities.mappers.toDomain
 import com.example.finance.domain.repository.OperationRepository
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
 class OperationRepositoryImpl(
     private val operationDao: OperationDao,
-    private val operationDomainToDbMapper: OperationDomainToDbMapper,
-    private val operationDbExtendedToDomainMapper: OperationDbExtendedToDomainMapper
+    private val dispatcher: CoroutineDispatcher
 ) : OperationRepository {
 
-    override fun getGroupedCategoriesByAccountId(
+    override fun getGroupedCategoriesByAccountAndPeriod(
         accountId: Int,
         period: Period
     ): Flow<List<GroupedCategories>> = operationDao.getGroupedCategoriesByAccountId(
         accountId = accountId,
         startDate = period.startDate,
         endDate = period.endDate
-    )
+    ).map { it.toDomain() }.flowOn(dispatcher)
 
-    override fun getAllGroupedCategories(
+    override fun getAllGroupedCategoriesByPeriod(
         period: Period
-    ): Flow<List<GroupedCategories>>  = operationDao.getAllGroupedCategories(
+    ): Flow<List<GroupedCategories>> = operationDao.getAllGroupedCategories(
         startDate = period.startDate,
         endDate = period.endDate
-    )
+    ).map { it.toDomain() }.flowOn(dispatcher)
 
-    override fun getOperationsByCategoryId(
+    override fun getOperationsByCategoryAndAccountAndPeriod(
         categoryId: Int,
         accountId: Int,
         period: Period
-    ): Flow<List<Operation>> = operationDao.getOperationsByCategory(
+    ): Flow<List<Operation>> = operationDao.getOperationsByCategoryAndAccount(
         categoryId = categoryId,
         accountId = accountId,
         startDate = period.startDate,
         endDate = period.endDate
-    ).map { operations ->
-        operations.map(operationDbExtendedToDomainMapper)
-    }
+    ).map { it.toDomain() }.flowOn(dispatcher)
 
-    override fun getAll(): Flow<List<Operation>> = operationDao.getAll().map { operations ->
-        operations.map(operationDbExtendedToDomainMapper)
-    }
+    override fun getOperationsByCategoryAndPeriod(
+        categoryId: Int,
+        period: Period
+    ): Flow<List<Operation>> = operationDao.getOperationsByCategory(
+        categoryId = categoryId,
+        startDate = period.startDate,
+        endDate = period.endDate
+    ).map { it.toDomain() }.flowOn(dispatcher)
 
-    override suspend fun getObjectById(objectId: Int): Operation {
-        val operationDbExtended = operationDao.getOperationById(objectId)
-        return operationDbExtendedToDomainMapper(operationDbExtended)
-    }
+    override fun getAll(): Flow<List<Operation>> =
+        operationDao.getAll().map { it.toDomain() }.flowOn(dispatcher)
+
+    override suspend fun getObjectById(objectId: Int): Operation =
+        withContext(dispatcher) { operationDao.getOperationById(objectId).toDomain() }
 
     override suspend fun insert(obj: Operation) =
-        operationDao.insert(operationDomainToDbMapper(obj))
+        withContext(dispatcher) { operationDao.insert(obj.toDb()) }
 
-    override suspend fun insertAll(objects: List<Operation>) =
-        operationDao.insertAll(objects.map(operationDomainToDbMapper))
-
-    override suspend fun update(obj: Operation) = operationDao.update(operationDomainToDbMapper(obj))
+    override suspend fun update(obj: Operation) =
+        withContext(dispatcher) { operationDao.update(obj.toDb()) }
 
     override suspend fun delete(obj: Operation) =
-        operationDao.delete(operationDomainToDbMapper(obj))
-
-    override suspend fun deleteObjectById(objectId: Int) =
-        operationDao.deleteOperationById(objectId)
-
-    override suspend fun deleteOperationsByAccountId(accountId: Int) =
-        operationDao.deleteOperationsByAccountId(accountId)
+        withContext(dispatcher) { operationDao.delete(obj.toDb()) }
 }

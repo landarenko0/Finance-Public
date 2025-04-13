@@ -2,6 +2,7 @@ package com.example.finance.data.local.entities
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.LocalDate
 
@@ -18,7 +19,18 @@ import java.time.LocalDate
             parentColumns = ["id"],
             childColumns = ["accountId"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = SubcategoryDb::class,
+            parentColumns = ["id"],
+            childColumns = ["subcategoryId"],
+            onDelete = ForeignKey.SET_NULL
         )
+    ],
+    indices = [
+        Index("categoryId"),
+        Index("subcategoryId"),
+        Index("accountId")
     ]
 )
 data class OperationDb(

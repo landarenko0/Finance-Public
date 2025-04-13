@@ -20,7 +20,11 @@ sealed interface OperationsByCategoryDetails {
 
     data object Initial : OperationsByCategoryDetails
 
-    data class Operations(val operations: List<Operation> = emptyList())  : OperationsByCategoryDetails
+    data class Operations(
+        val operations: Map<LocalDate, List<Operation>> = emptyMap()
+    )  : OperationsByCategoryDetails
 
-    data class Transfers(val transfers: List<Transfer> = emptyList())  : OperationsByCategoryDetails
+    data class Transfers(
+        val transfers: Map<LocalDate, List<Transfer>> = emptyMap()
+    )  : OperationsByCategoryDetails
 }

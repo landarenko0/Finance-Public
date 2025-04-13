@@ -9,12 +9,15 @@ import com.example.finance.domain.entities.Period
 import com.example.finance.domain.usecases.CategoryInteractor
 import com.example.finance.domain.usecases.OperationInteractor
 import com.example.finance.domain.usecases.TransferInteractor
-import com.example.finance.ui.navigation.AppScreens
+import com.example.finance.ui.navigation.OperationsByCategoryScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -32,87 +35,101 @@ class OperationsByCategoryViewModel @Inject constructor(
     val uiState: StateFlow<OperationsByCategoryUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            val operationsByCategoryScreenParameters = savedStateHandle.toRoute<AppScreens.OperationsByCategoryScreen>()
+        val operationsByCategoryScreenParameters =
+            savedStateHandle.toRoute<OperationsByCategoryScreen>()
 
-            val categoryId = operationsByCategoryScreenParameters.categoryId
-            val accountId = operationsByCategoryScreenParameters.accountId
-            val operationType = operationsByCategoryScreenParameters.operationType
+        val categoryId = operationsByCategoryScreenParameters.categoryId
+        val accountId = operationsByCategoryScreenParameters.accountId
+        val operationType = operationsByCategoryScreenParameters.operationType
 
-            val periodArr = operationsByCategoryScreenParameters.period.split(":")
-            val period = Period(
-                startDate = LocalDate.parse(periodArr[0]),
-                endDate = LocalDate.parse(periodArr[1])
-            )
+        val periodArr = operationsByCategoryScreenParameters.period.split(":")
+        val period = Period(
+            startDate = LocalDate.parse(periodArr.first()),
+            endDate = LocalDate.parse(periodArr.last())
+        )
 
-            when (operationType) {
-                OperationType.EXPENSES, OperationType.INCOME -> {
-                    categoryId?.let {
-                        val operations = when (accountId) {
-                            0 -> {
-                                // TODO: Получение всех операций по категории и периоду
-                                emptyList()
-                            }
+        when (operationType) {
+            OperationType.EXPENSES, OperationType.INCOME -> {
+                categoryId?.let {
+                    val operationsFlow = when (accountId) {
+                        0 -> operationInteractor.getOperationsByCategory(
+                            categoryId = categoryId,
+                            period = period
+                        )
 
-                            else -> {
-                                operationInteractor
-                                    .getOperationsByCategoryId(
-                                        categoryId = categoryId,
-                                        accountId = accountId,
-                                        period = period
+                        else -> operationInteractor.getOperationsByCategoryAndAccount(
+                            categoryId = categoryId,
+                            accountId = accountId,
+                            period = period
+                        )
+                    }
+
+                    operationsFlow
+                        .onEach { operations ->
+                            _uiState.update {
+                                it.copy(
+                                    transactionsSum = operations.sumOf { operation -> operation.sum },
+                                    details = OperationsByCategoryDetails.Operations(
+                                        operations.groupBy { operations -> operations.date }
                                     )
-                                    .first()
+                                )
                             }
                         }
+                        .flowOn(Dispatchers.Default) // sumOf and groupBy may execute for long time
+                        .launchIn(viewModelScope)
 
+                    viewModelScope.launch {
                         _uiState.update {
                             it.copy(
                                 categoryName = categoryInteractor.getCategoryById(categoryId).name,
-                                transactionsSum = operations.sumOf { operation -> operation.sum },
                                 period = period,
                                 operationType = operationType,
                                 accountId = accountId,
-                                categoryId = categoryId,
-                                details = OperationsByCategoryDetails.Operations(operations)
+                                categoryId = categoryId
                             )
                         }
                     }
                 }
+            }
 
-                else -> {
-                    val transfers = when (accountId) {
-                        0 -> {
-                            // TODO: Получение всех переводов по периоду
-                            emptyList()
-                        }
+            else -> {
+                val transfersFlow = when (accountId) {
+                    0 -> transferInteractor.getTransfersByPeriod(period)
 
-                        else -> {
-                            transferInteractor
-                                .getTransfersByAccountsIdAndPeriod(
-                                    operationType = operationType,
-                                    accountId = accountId,
-                                    period = period
+                    else -> transferInteractor.getTransfersByAccountAndPeriod(
+                        operationType = operationType,
+                        accountId = accountId,
+                        period = period
+                    )
+                }
+
+                transfersFlow
+                    .onEach { transfers ->
+                        _uiState.update {
+                            it.copy(
+                                transactionsSum = transfers.sumOf { transfer -> transfer.sum },
+                                details = OperationsByCategoryDetails.Transfers(
+                                    transfers.groupBy { transfer -> transfer.date }
                                 )
-                                .first()
+                            )
                         }
                     }
+                    .flowOn(Dispatchers.Default) // sumOf and groupBy may execute for long time
+                    .launchIn(viewModelScope)
 
-                    _uiState.update {
-                        it.copy(
-                            categoryName = when (operationType) {
-                                OperationType.OUTCOME_TRANSFER -> "Исходящие переводы"
-                                OperationType.INCOME_TRANSFER -> "Входящие переводы"
-                                OperationType.TRANSFER -> "Переводы"
-                                else -> ""
-                            },
-                            transactionsSum = transfers.sumOf { transfer -> transfer.sum },
-                            period = period,
-                            operationType = operationType,
-                            accountId = accountId,
-                            categoryId = categoryId,
-                            details = OperationsByCategoryDetails.Transfers(transfers)
-                        )
-                    }
+                _uiState.update {
+                    it.copy(
+                        categoryName = when (operationType) {
+                            OperationType.OUTCOME_TRANSFER -> "Исходящие переводы"
+                            OperationType.INCOME_TRANSFER -> "Входящие переводы"
+                            OperationType.TRANSFER -> "Переводы"
+                            else -> ""
+                        },
+                        period = period,
+                        operationType = operationType,
+                        accountId = accountId,
+                        categoryId = categoryId
+                    )
                 }
             }
         }
