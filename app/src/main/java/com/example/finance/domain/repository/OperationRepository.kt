@@ -2,10 +2,22 @@ package com.example.finance.domain.repository
 
 import com.example.finance.domain.entities.GroupedCategories
 import com.example.finance.domain.entities.Operation
+import com.example.finance.domain.entities.OperationType
 import com.example.finance.domain.entities.Period
 import kotlinx.coroutines.flow.Flow
 
 interface OperationRepository : BaseRepository<Operation> {
+
+    fun getOperationsByAccountAndTypeAndPeriod(
+        accountId: Int,
+        operationType: OperationType,
+        period: Period
+    ): Flow<List<Operation>>
+
+    fun getOperationsByTypeAndPeriod(
+        operationType: OperationType,
+        period: Period
+    ): Flow<List<Operation>>
 
     fun getGroupedCategoriesByAccountAndPeriod(
         accountId: Int,

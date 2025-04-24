@@ -1,9 +1,9 @@
 package com.example.finance.data.repository
 
 import com.example.finance.data.local.dao.SubcategoryDao
-import com.example.finance.data.local.entities.mappers.toDb
+import com.example.finance.data.local.entities.mappers.domainToDb.toDb
 import com.example.finance.domain.entities.Subcategory
-import com.example.finance.domain.entities.mappers.toDomain
+import com.example.finance.data.local.entities.mappers.dbToDomain.toDomain
 import com.example.finance.domain.repository.SubcategoryRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow

@@ -21,6 +21,7 @@ import com.example.finance.ui.screens.operation.OperationScreen
 import com.example.finance.ui.screens.operationsbycategory.OperationsByCategoryScreen
 import com.example.finance.ui.screens.reminder.ReminderScreen
 import com.example.finance.ui.screens.reminderlist.ReminderListScreen
+import com.example.finance.ui.screens.statistics.StatisticsScreen
 import com.example.finance.ui.screens.transfer.TransferScreen
 import kotlinx.coroutines.launch
 
@@ -49,6 +50,14 @@ fun FinanceApp() {
             ) {
                 popUpTo(HomeScreen)
                 launchSingleTop = true
+
+                if (currentScreen != AppScreens.HOME) {
+                    navController.previousBackStackEntry?.let { previousBackStackEntry ->
+                        previousBackStackEntry.destination.route?.let {
+                            navController.clearBackStack(it)
+                        }
+                    }
+                }
             }
         }
     }
@@ -121,7 +130,11 @@ fun FinanceApp() {
                 )
             }
 
-            composable<StatisticsScreen> { }
+            composable<StatisticsScreen> {
+                StatisticsScreen(
+                    openNavigationDrawer = { scope.launch { drawerState.open() } }
+                )
+            }
 
             composable<ReminderListScreen> {
                 ReminderListScreen(

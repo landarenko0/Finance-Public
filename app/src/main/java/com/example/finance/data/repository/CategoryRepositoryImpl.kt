@@ -1,11 +1,11 @@
 package com.example.finance.data.repository
 
 import com.example.finance.data.local.dao.CategoryDao
-import com.example.finance.data.local.entities.mappers.toDb
+import com.example.finance.data.local.entities.mappers.domainToDb.toDb
 import com.example.finance.domain.entities.Category
 import com.example.finance.domain.entities.CategoryWithSubcategories
 import com.example.finance.domain.entities.OperationType
-import com.example.finance.domain.entities.mappers.toDomain
+import com.example.finance.data.local.entities.mappers.dbToDomain.toDomain
 import com.example.finance.domain.repository.CategoryRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow

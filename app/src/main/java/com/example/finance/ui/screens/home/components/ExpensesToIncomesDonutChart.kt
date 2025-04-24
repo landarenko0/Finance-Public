@@ -67,7 +67,7 @@ fun ExpensesToIncomesDonutChart(
         val diameter = size.minDimension
         val strokeWidth = 40f
 
-        val radius = diameter / 2 - strokeWidth / 2
+        val radius = diameter / 2 - strokeWidth
 
         val rect = Rect(
             offset = Offset(center.x - radius, center.y - radius),
@@ -132,7 +132,7 @@ fun ExpensesToIncomesDonutChart(
 
 @Preview
 @Composable
-private fun ExpensesToIncomesDonutChartPreview(modifier: Modifier = Modifier) {
+private fun ExpensesToIncomesDonutChartPreview() {
     FinanceTheme {
         ExpensesToIncomesDonutChart(
             expensesSum = 250,

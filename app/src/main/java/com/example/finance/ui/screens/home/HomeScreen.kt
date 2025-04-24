@@ -11,6 +11,7 @@ import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -25,8 +26,8 @@ import com.example.finance.ui.common.PeriodText
 import com.example.finance.ui.screens.home.components.DateRangePickerModalDialog
 import com.example.finance.ui.screens.home.components.ExpensesToIncomesDonutChart
 import com.example.finance.ui.screens.home.components.GroupedCategoriesList
-import com.example.finance.ui.screens.home.components.MainScreenTopBarTitle
-import com.example.finance.ui.screens.home.components.PeriodTabs
+import com.example.finance.ui.common.AccountPickerWithBalanceTopBarTitle
+import com.example.finance.ui.common.FinanceTabRow
 
 const val CURRENT_DATE_TAB_INDEX = 0
 const val CURRENT_WEEK_TAB_INDEX = 1
@@ -43,6 +44,8 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val datePickerState = rememberDateRangePickerState(selectableDates = PastOrPresentSelectableDates)
+
+    val tabs = remember { listOf("День", "Неделя", "Месяц", "Период") }
 
     LaunchedEffect(Unit) {
         viewModel.event.collect { event ->
@@ -69,7 +72,7 @@ fun HomeScreen(
         topBar = {
             MenuTopBar(
                 title = {
-                    MainScreenTopBarTitle(
+                    AccountPickerWithBalanceTopBarTitle(
                         selectedAccount = uiState.selectedAccount,
                         onPickerClick = { viewModel.onUiEvent(HomeUiEvent.OnAccountPickerClick) }
                     )
@@ -92,7 +95,8 @@ fun HomeScreen(
                 .padding(paddingValues)
                 .padding(vertical = 12.dp, horizontal = 16.dp)
         ) {
-            PeriodTabs(
+            FinanceTabRow(
+                tabs = tabs,
                 selectedTabIndex = uiState.selectedTabIndex,
                 onTabClick = { viewModel.onUiEvent(HomeUiEvent.OnTabSelected(it)) }
             )

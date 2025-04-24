@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.bundles.serialization)
     implementation(libs.bundles.dataStore)
     implementation(libs.bundles.workManager)
+    implementation(libs.dautovicharis.charts)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     debugImplementation(libs.bundles.compose.debug)
     ksp(libs.dagger.hilt.android.compiler)

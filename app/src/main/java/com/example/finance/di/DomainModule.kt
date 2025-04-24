@@ -30,6 +30,7 @@ import com.example.finance.domain.usecases.GetAllUseCase
 import com.example.finance.domain.usecases.GetCategoriesByTypeUseCase
 import com.example.finance.domain.usecases.GetCategorySubcategoriesUseCase
 import com.example.finance.domain.usecases.GetCategoryWithSubcategoriesByIdUseCase
+import com.example.finance.domain.usecases.GetSumOfOperationsByMonthForTheYearUseCase
 import com.example.finance.domain.usecases.GetGroupedCategoriesUseCase
 import com.example.finance.domain.usecases.GetObjectByIdUseCase
 import com.example.finance.domain.usecases.GetOperationsByCategoryAndAccountUseCase
@@ -114,7 +115,10 @@ object DomainModule {
                 operationRepository
             ),
             getOperationsByCategory = GetOperationsByCategoryUseCase(operationRepository),
-            getAllGroupedCategories = GetAllGroupedCategoriesUseCase(operationRepository)
+            getAllGroupedCategories = GetAllGroupedCategoriesUseCase(operationRepository),
+            getSumOfOperationsByMonthForTheYear = GetSumOfOperationsByMonthForTheYearUseCase(
+                operationRepository
+            )
         )
 
     @Singleton

@@ -6,11 +6,29 @@ import androidx.room.Transaction
 import com.example.finance.data.local.entities.GroupedCategoriesDb
 import com.example.finance.data.local.entities.OperationDb
 import com.example.finance.data.local.entities.OperationDbExtended
+import com.example.finance.domain.entities.OperationType
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
 @Dao
 interface OperationDao : BaseDao<OperationDb> {
+
+    @Transaction
+    @Query(GET_OPERATIONS_BY_ACCOUNT_ID_AND_TYPE_AND_PERIOD_QUERY)
+    fun getOperationsByAccountAndTypeAndPeriod(
+        accountId: Int,
+        operationType: OperationType,
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): Flow<List<OperationDbExtended>>
+
+    @Transaction
+    @Query(GET_OPERATIONS_BY_TYPE_AND_PERIOD_QUERY)
+    fun getOperationsByTypeAndPeriod(
+        operationType: OperationType,
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): Flow<List<OperationDbExtended>>
 
     @Transaction
     @Query("SELECT * FROM operationdb")
@@ -51,6 +69,41 @@ interface OperationDao : BaseDao<OperationDb> {
     ): Flow<List<OperationDbExtended>>
 
     companion object {
+        const val GET_OPERATIONS_BY_ACCOUNT_ID_AND_TYPE_AND_PERIOD_QUERY = """
+            SELECT
+	            operationdb.id,
+                categoryid,
+                subcategoryid,
+                accountid,
+                sum,
+                date,
+                comment
+            FROM
+	            operationdb
+	            JOIN categorydb ON operationdb.categoryid = categorydb.id
+            WHERE
+                operationdb.accountid = :accountId
+	            AND categorydb.type = :operationType
+                AND date BETWEEN :startDate AND :endDate
+        """
+
+        const val GET_OPERATIONS_BY_TYPE_AND_PERIOD_QUERY = """
+            SELECT
+	            operationdb.id,
+                categoryid,
+                subcategoryid,
+                accountid,
+                sum,
+                date,
+                comment
+            FROM
+	            operationdb
+	            JOIN categorydb ON operationdb.categoryid = categorydb.id
+            WHERE
+	            categorydb.type = :operationType
+                AND date BETWEEN :startDate AND :endDate
+        """
+
         const val GET_GROUPED_CATEGORIES_BY_ACCOUNT_ID_QUERY = """
             SELECT
                 operationType,

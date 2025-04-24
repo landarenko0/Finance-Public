@@ -8,7 +8,7 @@ import androidx.work.WorkRequest
 import com.example.finance.domain.entities.Periodicity
 import com.example.finance.domain.entities.Reminder
 import com.example.finance.domain.scheduler.ReminderScheduler
-import com.example.finance.ui.ReminderWorker
+import com.example.finance.data.worker.ReminderWorker
 import com.example.finance.utils.toMillis
 import java.util.UUID
 import java.util.concurrent.TimeUnit

@@ -1,11 +1,12 @@
 package com.example.finance.data.repository
 
 import com.example.finance.data.local.dao.OperationDao
-import com.example.finance.data.local.entities.mappers.toDb
+import com.example.finance.data.local.entities.mappers.domainToDb.toDb
 import com.example.finance.domain.entities.GroupedCategories
 import com.example.finance.domain.entities.Operation
+import com.example.finance.domain.entities.OperationType
 import com.example.finance.domain.entities.Period
-import com.example.finance.domain.entities.mappers.toDomain
+import com.example.finance.data.local.entities.mappers.dbToDomain.toDomain
 import com.example.finance.domain.repository.OperationRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
@@ -17,6 +18,26 @@ class OperationRepositoryImpl(
     private val operationDao: OperationDao,
     private val dispatcher: CoroutineDispatcher
 ) : OperationRepository {
+
+    override fun getOperationsByAccountAndTypeAndPeriod(
+        accountId: Int,
+        operationType: OperationType,
+        period: Period
+    ): Flow<List<Operation>> = operationDao.getOperationsByAccountAndTypeAndPeriod(
+        accountId = accountId,
+        operationType = operationType,
+        startDate = period.startDate,
+        endDate = period.endDate
+    ).map { it.toDomain() }.flowOn(dispatcher)
+
+    override fun getOperationsByTypeAndPeriod(
+        operationType: OperationType,
+        period: Period
+    ): Flow<List<Operation>> = operationDao.getOperationsByTypeAndPeriod(
+        operationType = operationType,
+        startDate = period.startDate,
+        endDate = period.endDate
+    ).map { it.toDomain() }.flowOn(dispatcher)
 
     override fun getGroupedCategoriesByAccountAndPeriod(
         accountId: Int,

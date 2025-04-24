@@ -1,9 +1,9 @@
 package com.example.finance.data.repository
 
 import com.example.finance.data.local.dao.AccountDao
-import com.example.finance.data.local.entities.mappers.toDb
+import com.example.finance.data.local.entities.mappers.domainToDb.toDb
 import com.example.finance.domain.entities.Account
-import com.example.finance.domain.entities.mappers.toDomain
+import com.example.finance.data.local.entities.mappers.dbToDomain.toDomain
 import com.example.finance.domain.repository.AccountRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow

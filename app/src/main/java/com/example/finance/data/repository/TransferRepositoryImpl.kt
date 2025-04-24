@@ -1,11 +1,11 @@
 package com.example.finance.data.repository
 
 import com.example.finance.data.local.dao.TransferDao
-import com.example.finance.data.local.entities.mappers.toDb
+import com.example.finance.data.local.entities.mappers.domainToDb.toDb
 import com.example.finance.domain.entities.OperationType
 import com.example.finance.domain.entities.Period
 import com.example.finance.domain.entities.Transfer
-import com.example.finance.domain.entities.mappers.toDomain
+import com.example.finance.data.local.entities.mappers.dbToDomain.toDomain
 import com.example.finance.domain.repository.TransferRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow

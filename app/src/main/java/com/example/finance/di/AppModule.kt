@@ -5,7 +5,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.work.WorkManager
 import com.example.finance.ui.dataStore
-import com.example.finance.ui.utils.NotificationService
+import com.example.finance.domain.notifications.NotificationService
+import com.example.finance.data.notifications.NotificationServiceImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -19,9 +20,8 @@ object AppModule {
 
     @Singleton
     @Provides
-    fun provideDataStore(
-        @ApplicationContext context: Context
-    ): DataStore<Preferences> = context.dataStore
+    fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
+        context.dataStore
 
     @Singleton
     @Provides
@@ -31,5 +31,5 @@ object AppModule {
     @Singleton
     @Provides
     fun provideNotificationService(@ApplicationContext context: Context): NotificationService =
-        NotificationService(context)
+        NotificationServiceImpl(context)
 }
